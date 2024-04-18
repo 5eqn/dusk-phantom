@@ -1,4 +1,4 @@
-use atomic_float::AtomicF32;
+use crate::DuskPhantomState;
 use nih_plug::prelude::{util, Editor};
 use nih_plug_vizia::vizia::prelude::*;
 use nih_plug_vizia::widgets::*;
@@ -12,7 +12,7 @@ use crate::DuskPhantomParams;
 #[derive(Lens)]
 struct Data {
     params: Arc<DuskPhantomParams>,
-    peak_meter: Arc<AtomicF32>,
+    plugin_state: Arc<DuskPhantomState>,
     display_code: String,
 }
 
@@ -42,7 +42,7 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
 
 pub(crate) fn create(
     params: Arc<DuskPhantomParams>,
-    peak_meter: Arc<AtomicF32>,
+    plugin_state: Arc<DuskPhantomState>,
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
@@ -51,7 +51,7 @@ pub(crate) fn create(
 
         Data {
             params: params.clone(),
-            peak_meter: peak_meter.clone(),
+            plugin_state: plugin_state.clone(),
 
             // Load initial code from params, clone it, and free the lock
             display_code: params.code.lock().unwrap().clone(),
@@ -59,6 +59,7 @@ pub(crate) fn create(
         .build(cx);
 
         VStack::new(cx, |cx| {
+            // Title
             Label::new(cx, "DuskPhantom GUI")
                 .font_family(vec![FamilyOwned::Name(String::from(assets::NOTO_SANS))])
                 .font_weight(FontWeightKeyword::Thin)
@@ -66,21 +67,39 @@ pub(crate) fn create(
                 .height(Pixels(50.0))
                 .child_top(Stretch(1.0))
                 .child_bottom(Pixels(0.0));
+            Label::new(cx, "DuskPhantom").bottom(Stretch(1.0));
 
-            Label::new(cx, "DuskPhantom");
+            // Code area
             Textbox::new_multiline(cx, Data::display_code, true)
                 .width(Percentage(80.0))
                 .height(Pixels(360.0))
+                .bottom(Stretch(1.0))
                 .on_edit(|cx, code| cx.emit(AppEvent::SetCode(code)));
 
+            // Error message
+            HStack::new(cx, |cx| {
+                Label::new(
+                    cx,
+                    Data::params
+                        .map(|param| format!("[{}]", param.code_version.load(Ordering::Relaxed))),
+                )
+                .right(Pixels(30.0));
+                Label::new(
+                    cx,
+                    Data::plugin_state.map(|st| st.error_message.lock().unwrap().to_string()),
+                );
+            })
+            .bottom(Stretch(1.0));
+
+            // Peak meter
             PeakMeter::new(
                 cx,
-                Data::peak_meter
-                    .map(|peak_meter| util::gain_to_db(peak_meter.load(Ordering::Relaxed))),
+                Data::plugin_state
+                    .map(|st| util::gain_to_db(st.peak_meter.load(Ordering::Relaxed))),
                 Some(Duration::from_millis(600)),
             )
-            // This is how adding padding works in vizia
-            .top(Pixels(10.0));
+            .top(Pixels(10.0))
+            .bottom(Stretch(1.0));
         })
         .row_between(Pixels(0.0))
         .child_left(Stretch(1.0))
