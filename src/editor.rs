@@ -83,11 +83,13 @@ pub(crate) fn create(
                     Data::params
                         .map(|param| format!("[{}]", param.code_version.load(Ordering::Relaxed))),
                 )
-                .right(Pixels(30.0));
+                .width(Percentage(5.0))
+                .right(Percentage(5.0));
                 Label::new(
                     cx,
-                    Data::plugin_state.map(|st| st.error_message.lock().unwrap().to_string()),
-                );
+                    Data::plugin_state.map(|st| st.message.lock().unwrap().to_string()),
+                )
+                .width(Percentage(70.0));
             })
             .bottom(Stretch(1.0));
 

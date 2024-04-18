@@ -10,25 +10,28 @@ match {
     _
 }
 
-pub Syntax: Syntax = <a: Atom> => a;
+pub Syntax: Syntax = <a: AddExpr> => a;
 
 AddExpr: Syntax = {
     <l: AddExpr> "+" <r: MulExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Add).into(), l.into()).into(), r.into()),
     <l: AddExpr> "-" <r: MulExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Sub).into(), l.into()).into(), r.into()),
+    <l: MulExpr> => l,
 }
 
 MulExpr: Syntax = {
     <l: MulExpr> "*" <r: Atom> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Mul).into(), l.into()).into(), r.into()),
     <l: MulExpr> "/" <r: Atom> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Div).into(), l.into()).into(), r.into()),
+    <l: Atom> => l,
 }
 
 Atom: Syntax = {
     <n: Float> => Syntax::Float(n),
     <i: Ident> => Syntax::Var(i),
     "(" <t: Syntax> ")" => t,
-};
+}
 
 Float: f32 = {
+    <s: r"[1-9][0-9]*"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+\.([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+[eE][+-]?[0-9]+"> => s.parse::<f32>().unwrap(),

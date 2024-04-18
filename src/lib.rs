@@ -28,7 +28,7 @@ pub struct DuskPhantom {
 
 struct DuskPhantomState {
     peak_meter: AtomicF32,
-    error_message: Mutex<String>,
+    message: Mutex<String>,
 }
 
 #[derive(Params)]
@@ -55,7 +55,7 @@ impl Default for DuskPhantom {
             peak_meter_decay_weight: 1.0,
             plugin_state: DuskPhantomState {
                 peak_meter: AtomicF32::new(util::MINUS_INFINITY_DB),
-                error_message: Mutex::new("".into()),
+                message: Mutex::new("".into()),
             }
             .into(),
 
@@ -136,7 +136,7 @@ impl Plugin for DuskPhantom {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // Update code value if code updated
+        // Lazily update code value when code updates
         let new_version = self
             .params
             .code_version
@@ -144,10 +144,12 @@ impl Plugin for DuskPhantom {
         if new_version > self.code_version {
             self.code_version = new_version;
             let code = match run(&self.params.code.lock().unwrap()) {
-                Ok(val) => val,
+                Ok(val) => {
+                    *self.plugin_state.message.lock().unwrap() = val.to_string();
+                    val
+                },
                 Err(err) => {
-                    let mut msg = self.plugin_state.error_message.lock().unwrap();
-                    *msg = err;
+                    *self.plugin_state.message.lock().unwrap() = err;
                     Value::Float(1.0)
                 }
             };

@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Syntax {
     Float(f32),
     Var(String),
