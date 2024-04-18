@@ -16,18 +16,19 @@ pub struct DuskPhantom {
     /// Needed to normalize the peak meter's response based on the sample rate.
     peak_meter_decay_weight: f32,
 
-    /// The current data for the peak meter. This is stored as an [`Arc`] so we can share it between
-    /// the GUI and the audio processing parts. If you have more state to share, then it's a good
-    /// idea to put all of that in a struct behind a single `Arc`.
-    ///
-    /// This is stored as voltage gain.
-    peak_meter: Arc<AtomicF32>,
+    /// State of the plugin.
+    plugin_state: Arc<DuskPhantomState>,
 
     /// Version of generated code.
     code_version: i32,
 
     /// Value of generated code.
     code_value: Value,
+}
+
+struct DuskPhantomState {
+    peak_meter: AtomicF32,
+    error_message: Mutex<String>,
 }
 
 #[derive(Params)]
@@ -52,7 +53,11 @@ impl Default for DuskPhantom {
             params: Arc::new(DuskPhantomParams::default()),
 
             peak_meter_decay_weight: 1.0,
-            peak_meter: Arc::new(AtomicF32::new(util::MINUS_INFINITY_DB)),
+            plugin_state: DuskPhantomState {
+                peak_meter: AtomicF32::new(util::MINUS_INFINITY_DB),
+                error_message: Mutex::new("".into()),
+            }
+            .into(),
 
             code_version: 0,
             code_value: Value::Float(1.0),
@@ -105,7 +110,7 @@ impl Plugin for DuskPhantom {
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
         editor::create(
             self.params.clone(),
-            self.peak_meter.clone(),
+            self.plugin_state.clone(),
             self.params.editor_state.clone(),
         )
     }
@@ -138,7 +143,14 @@ impl Plugin for DuskPhantom {
             .load(std::sync::atomic::Ordering::Relaxed);
         if new_version > self.code_version {
             self.code_version = new_version;
-            let code = run(&self.params.code.lock().unwrap()).unwrap_or(Value::Float(1.0));
+            let code = match run(&self.params.code.lock().unwrap()) {
+                Ok(val) => val,
+                Err(err) => {
+                    let mut msg = self.plugin_state.error_message.lock().unwrap();
+                    *msg = err;
+                    Value::Float(1.0)
+                }
+            };
             self.code_value = code;
         }
 
@@ -161,7 +173,10 @@ impl Plugin for DuskPhantom {
             // calculations that are only displayed on the GUI while the GUI is open
             if self.params.editor_state.is_open() {
                 amplitude = (amplitude / num_samples as f32).abs();
-                let current_peak_meter = self.peak_meter.load(std::sync::atomic::Ordering::Relaxed);
+                let current_peak_meter = self
+                    .plugin_state
+                    .peak_meter
+                    .load(std::sync::atomic::Ordering::Relaxed);
                 let new_peak_meter = if amplitude > current_peak_meter {
                     amplitude
                 } else {
@@ -169,7 +184,8 @@ impl Plugin for DuskPhantom {
                         + amplitude * (1.0 - self.peak_meter_decay_weight)
                 };
 
-                self.peak_meter
+                self.plugin_state
+                    .peak_meter
                     .store(new_peak_meter, std::sync::atomic::Ordering::Relaxed)
             }
         }
