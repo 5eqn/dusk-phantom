@@ -29,3 +29,41 @@ pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
         Term::Lib(x) => Ok(Value::Lib(x)),
     }
 }
+
+// Unit tests
+#[cfg(test)]
+pub mod tests_eval {
+    use super::*;
+
+    #[test]
+    fn test_minimal() {
+        let code = Term::Float(80.0);
+        let env = Env::new();
+        match eval(code.clone(), &env) {
+            Ok(result) => assert_eq!(result, Value::Float(80.0)),
+            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_complex() {
+        let code = Term::Apply(
+            Term::Apply(
+                Box::new(Term::Lib(Lib::Mul)),
+                Box::new(Term::Float(1.4)),
+            ).into(),
+            Term::Apply(
+                Term::Apply(
+                    Box::new(Term::Lib(Lib::Add)),
+                    Box::new(Term::Float(2.0)),
+                ).into(),
+                Term::Float(3.0).into(),
+            ).into(),
+        );
+        let env = Env::new();
+        match eval(code.clone(), &env) {
+            Ok(result) => assert_eq!(result, Value::Float(7.0)),
+            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+        }
+    }
+}
