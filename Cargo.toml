@@ -14,6 +14,9 @@ members = ["xtask"]
 # The `lib` artifact is needed for the standalone target
 crate-type = ["cdylib", "lib"]
 
+[build-dependencies]
+lalrpop = "0.20.2"
+
 [dependencies]
 # Remove the `assert_process_allocs` feature to allow allocations on the audio
 # thread in debug builds.
@@ -24,6 +27,8 @@ nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", features = ["a
 nih_plug_vizia = { git = "https://github.com/robbert-vdh/nih-plug.git" }
 atomic_float = "0.1"
 serde = "1.0.198"
+lalrpop-util = { version = "0.20.2", features = ["lexer", "unicode"] }
+hexf-parse = "0.2.1"
 
 [profile.release]
 lto = "thin"

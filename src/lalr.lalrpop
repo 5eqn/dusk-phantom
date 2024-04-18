@@ -1,0 +1,37 @@
+use crate::lang::syntax::*;
+use crate::lang::library::*;
+
+grammar;
+
+match {
+    r"\s*" => {},
+    r"//[^\n\r]*[\n\r]*" => {},
+    r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => {},
+    _
+}
+
+pub Syntax: Syntax = <a: Atom> => a;
+
+AddExpr: Syntax = {
+    <l: AddExpr> "+" <r: MulExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Add).into(), l.into()).into(), r.into()),
+    <l: AddExpr> "-" <r: MulExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Sub).into(), l.into()).into(), r.into()),
+}
+
+MulExpr: Syntax = {
+    <l: MulExpr> "*" <r: Atom> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Mul).into(), l.into()).into(), r.into()),
+    <l: MulExpr> "/" <r: Atom> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Div).into(), l.into()).into(), r.into()),
+}
+
+Atom: Syntax = {
+    <n: Float> => Syntax::Float(n),
+    <i: Ident> => Syntax::Var(i),
+    "(" <t: Syntax> ")" => t,
+};
+
+Float: f32 = {
+    <s: r"[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
+    <s: r"[0-9]+\.([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
+    <s: r"[0-9]+[eE][+-]?[0-9]+"> => s.parse::<f32>().unwrap(),
+}
+
+Ident: String = <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> => s.to_string();

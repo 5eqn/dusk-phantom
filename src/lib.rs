@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 mod constant;
 mod editor;
+mod lang;
 
 /// This is mostly identical to the gain example, minus some fluff, and with a GUI.
 pub struct DuskPhantom {
@@ -118,7 +119,8 @@ impl Plugin for DuskPhantom {
             let mut amplitude = 0.0;
             let num_samples = channel_samples.len();
 
-            let gain: f32 = self.params.code.lock().unwrap().parse().unwrap_or(1.0);
+            let code = self.params.code.lock().unwrap();
+            let gain: f32 = lang::run(&code).unwrap_or(1.0);
             for sample in channel_samples {
                 *sample *= gain;
                 amplitude += *sample;
