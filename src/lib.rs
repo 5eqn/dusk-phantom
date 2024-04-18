@@ -3,7 +3,7 @@ use constant::{DEFAULT_CODE, PEAK_METER_DECAY_MS};
 use lang::*;
 use nih_plug::prelude::*;
 use nih_plug_vizia::ViziaState;
-use std::sync::{atomic::AtomicI32, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 mod constant;
 mod editor;
@@ -11,28 +11,24 @@ mod lang;
 
 /// This is mostly identical to the gain example, minus some fluff, and with a GUI.
 pub struct DuskPhantom {
-    params: Arc<DuskPhantomParams>,
-
-    /// Needed to normalize the peak meter's response based on the sample rate.
-    peak_meter_decay_weight: f32,
-
-    /// State of the plugin.
-    plugin_state: Arc<DuskPhantomState>,
-
-    /// Version of generated code.
-    code_version: i32,
-
-    /// Value of generated code.
-    code_value: Value,
+    params: Arc<PluginParams>,
+    local_state: LocalState,
+    plugin_state: Arc<PluginState>,
 }
 
-struct DuskPhantomState {
+struct LocalState {
+    /// Needed to normalize the peak meter's response based on the sample rate.
+    peak_meter_decay_weight: f32,
+}
+
+struct PluginState {
     peak_meter: AtomicF32,
     message: Mutex<String>,
+    code_value: Mutex<Value>,
 }
 
 #[derive(Params)]
-struct DuskPhantomParams {
+struct PluginParams {
     /// The editor state, saved together with the parameter state so the custom scaling can be
     /// restored.
     #[persist = "editor-state"]
@@ -41,38 +37,29 @@ struct DuskPhantomParams {
     /// The code to compile
     #[persist = "code"]
     code: Arc<Mutex<String>>,
-
-    /// Version of code
-    #[persist = "code-version"]
-    code_version: Arc<AtomicI32>,
 }
 
 impl Default for DuskPhantom {
     fn default() -> Self {
         Self {
-            params: Arc::new(DuskPhantomParams::default()),
-
-            peak_meter_decay_weight: 1.0,
-            plugin_state: DuskPhantomState {
+            params: PluginParams::default().into(),
+            local_state: LocalState {
+                peak_meter_decay_weight: 1.0,
+            },
+            plugin_state: PluginState {
                 peak_meter: AtomicF32::new(util::MINUS_INFINITY_DB),
                 message: Mutex::new("".into()),
-            }
-            .into(),
-
-            code_version: 0,
-            code_value: Value::Float(1.0),
+                code_value: Mutex::new(Value::Float(1.0)),
+            }.into(),
         }
     }
 }
 
-impl Default for DuskPhantomParams {
+impl Default for PluginParams {
     fn default() -> Self {
         Self {
             editor_state: editor::default_state(),
-
-            // See the main gain example for more details
             code: Arc::new(Mutex::new(DEFAULT_CODE.into())),
-            code_version: Arc::new(AtomicI32::new(0)),
         }
     }
 }
@@ -123,10 +110,19 @@ impl Plugin for DuskPhantom {
     ) -> bool {
         // After `PEAK_METER_DECAY_MS` milliseconds of pure silence, the peak meter's value should
         // have dropped by 12 dB
-        self.peak_meter_decay_weight = 0.25f64
+        self.local_state.peak_meter_decay_weight = 0.25f64
             .powf((buffer_config.sample_rate as f64 * PEAK_METER_DECAY_MS / 1000.0).recip())
             as f32;
 
+        // Init code state
+        let (msg, code) = match run(&self.params.code.lock().unwrap()) {
+            Ok(val) => (format!("Compilation success: {}", val), val),
+            Err(err) => (err, Value::Float(1.0)),
+        };
+        *self.plugin_state.message.lock().unwrap() = msg;
+        *self.plugin_state.code_value.lock().unwrap() = code;
+
+        // Initialization success
         true
     }
 
@@ -136,28 +132,8 @@ impl Plugin for DuskPhantom {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // Lazily update code value when code updates
-        let new_version = self
-            .params
-            .code_version
-            .load(std::sync::atomic::Ordering::Relaxed);
-        if new_version > self.code_version {
-            self.code_version = new_version;
-            let code = match run(&self.params.code.lock().unwrap()) {
-                Ok(val) => {
-                    *self.plugin_state.message.lock().unwrap() = val.to_string();
-                    val
-                },
-                Err(err) => {
-                    *self.plugin_state.message.lock().unwrap() = err;
-                    Value::Float(1.0)
-                }
-            };
-            self.code_value = code;
-        }
-
         // Calculate gain
-        let gain: f32 = match self.code_value {
+        let gain: f32 = match self.plugin_state.code_value.lock().unwrap().clone() {
             Value::Float(x) => x,
             _ => 1.0,
         };
@@ -182,8 +158,8 @@ impl Plugin for DuskPhantom {
                 let new_peak_meter = if amplitude > current_peak_meter {
                     amplitude
                 } else {
-                    current_peak_meter * self.peak_meter_decay_weight
-                        + amplitude * (1.0 - self.peak_meter_decay_weight)
+                    current_peak_meter * self.local_state.peak_meter_decay_weight
+                        + amplitude * (1.0 - self.local_state.peak_meter_decay_weight)
                 };
 
                 self.plugin_state
