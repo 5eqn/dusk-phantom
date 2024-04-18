@@ -4,7 +4,7 @@ use nih_plug_vizia::vizia::prelude::*;
 use nih_plug_vizia::widgets::*;
 use nih_plug_vizia::{assets, create_vizia_editor, ViziaState, ViziaTheming};
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::DuskPhantomParams;
@@ -13,7 +13,6 @@ use crate::DuskPhantomParams;
 struct Data {
     params: Arc<DuskPhantomParams>,
     peak_meter: Arc<AtomicF32>,
-    code: Arc<Mutex<String>>,
     display_code: String,
 }
 
@@ -27,7 +26,8 @@ impl Model for Data {
     fn event(&mut self, _: &mut EventContext, event: &mut Event) {
         event.map(|app_event, _| match app_event {
             AppEvent::SetCode(code) => {
-                let mut loaded_code = self.code.lock().unwrap();
+                self.params.code_version.fetch_add(1, Ordering::Relaxed);
+                let mut loaded_code = self.params.code.lock().unwrap();
                 *loaded_code = code.clone();
                 self.display_code = code.clone();
             }
@@ -52,7 +52,6 @@ pub(crate) fn create(
         Data {
             params: params.clone(),
             peak_meter: peak_meter.clone(),
-            code: params.code.clone(),
 
             // Load initial code from params, clone it, and free the lock
             display_code: params.code.lock().unwrap().clone(),

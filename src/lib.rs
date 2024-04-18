@@ -1,8 +1,9 @@
 use atomic_float::AtomicF32;
 use constant::{DEFAULT_CODE, PEAK_METER_DECAY_MS};
+use lang::*;
 use nih_plug::prelude::*;
 use nih_plug_vizia::ViziaState;
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::AtomicI32, Arc, Mutex};
 
 mod constant;
 mod editor;
@@ -14,12 +15,19 @@ pub struct DuskPhantom {
 
     /// Needed to normalize the peak meter's response based on the sample rate.
     peak_meter_decay_weight: f32,
+
     /// The current data for the peak meter. This is stored as an [`Arc`] so we can share it between
     /// the GUI and the audio processing parts. If you have more state to share, then it's a good
     /// idea to put all of that in a struct behind a single `Arc`.
     ///
     /// This is stored as voltage gain.
     peak_meter: Arc<AtomicF32>,
+
+    /// Version of generated code.
+    code_version: i32,
+
+    /// Value of generated code.
+    code_value: Value,
 }
 
 #[derive(Params)]
@@ -30,8 +38,12 @@ struct DuskPhantomParams {
     editor_state: Arc<ViziaState>,
 
     /// The code to compile
-    #[persist = "code-state"]
+    #[persist = "code"]
     code: Arc<Mutex<String>>,
+
+    /// Version of code
+    #[persist = "code-version"]
+    code_version: Arc<AtomicI32>,
 }
 
 impl Default for DuskPhantom {
@@ -41,6 +53,9 @@ impl Default for DuskPhantom {
 
             peak_meter_decay_weight: 1.0,
             peak_meter: Arc::new(AtomicF32::new(util::MINUS_INFINITY_DB)),
+
+            code_version: 0,
+            code_value: Value::Float(1.0),
         }
     }
 }
@@ -52,6 +67,7 @@ impl Default for DuskPhantomParams {
 
             // See the main gain example for more details
             code: Arc::new(Mutex::new(DEFAULT_CODE.into())),
+            code_version: Arc::new(AtomicI32::new(0)),
         }
     }
 }
@@ -115,12 +131,27 @@ impl Plugin for DuskPhantom {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        // Update code value if code updated
+        let new_version = self
+            .params
+            .code_version
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if new_version > self.code_version {
+            self.code_version = new_version;
+            let code = run(&self.params.code.lock().unwrap()).unwrap_or(Value::Float(1.0));
+            self.code_value = code;
+        }
+
+        // Calculate gain
+        let gain: f32 = match self.code_value {
+            Value::Float(x) => x,
+            _ => 1.0,
+        };
+
+        // Iterate all samples
         for channel_samples in buffer.iter_samples() {
             let mut amplitude = 0.0;
             let num_samples = channel_samples.len();
-
-            let code = self.params.code.lock().unwrap();
-            let gain: f32 = lang::run(&code).unwrap_or(1.0);
             for sample in channel_samples {
                 *sample *= gain;
                 amplitude += *sample;
