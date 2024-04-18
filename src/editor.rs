@@ -1,4 +1,5 @@
-use crate::DuskPhantomState;
+use crate::PluginState;
+use crate::lang::*;
 use nih_plug::prelude::{util, Editor};
 use nih_plug_vizia::vizia::prelude::*;
 use nih_plug_vizia::widgets::*;
@@ -7,13 +8,12 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::DuskPhantomParams;
+use crate::PluginParams;
 
 #[derive(Lens)]
 struct Data {
-    params: Arc<DuskPhantomParams>,
-    plugin_state: Arc<DuskPhantomState>,
-    display_code: String,
+    params: Arc<PluginParams>,
+    plugin_state: Arc<PluginState>,
 }
 
 // Define events to mutate the data
@@ -26,10 +26,13 @@ impl Model for Data {
     fn event(&mut self, _: &mut EventContext, event: &mut Event) {
         event.map(|app_event, _| match app_event {
             AppEvent::SetCode(code) => {
-                self.params.code_version.fetch_add(1, Ordering::Relaxed);
-                let mut loaded_code = self.params.code.lock().unwrap();
-                *loaded_code = code.clone();
-                self.display_code = code.clone();
+                *self.params.code.lock().unwrap() = code.clone();
+                let (msg, code) = match run(code) {
+                    Ok(val) => (format!("Compilation success: {}", val), val),
+                    Err(err) => (err, Value::Float(1.0)),
+                };
+                *self.plugin_state.message.lock().unwrap() = msg;
+                *self.plugin_state.code_value.lock().unwrap() = code;
             }
         });
     }
@@ -41,8 +44,8 @@ pub(crate) fn default_state() -> Arc<ViziaState> {
 }
 
 pub(crate) fn create(
-    params: Arc<DuskPhantomParams>,
-    plugin_state: Arc<DuskPhantomState>,
+    params: Arc<PluginParams>,
+    plugin_state: Arc<PluginState>,
     editor_state: Arc<ViziaState>,
 ) -> Option<Box<dyn Editor>> {
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
@@ -52,9 +55,6 @@ pub(crate) fn create(
         Data {
             params: params.clone(),
             plugin_state: plugin_state.clone(),
-
-            // Load initial code from params, clone it, and free the lock
-            display_code: params.code.lock().unwrap().clone(),
         }
         .build(cx);
 
@@ -70,28 +70,18 @@ pub(crate) fn create(
             Label::new(cx, "DuskPhantom").bottom(Stretch(1.0));
 
             // Code area
-            Textbox::new_multiline(cx, Data::display_code, true)
+            Textbox::new_multiline(cx, Data::params.map(|p| p.code.lock().unwrap().to_string()), true)
                 .width(Percentage(80.0))
                 .height(Pixels(360.0))
                 .bottom(Stretch(1.0))
                 .on_edit(|cx, code| cx.emit(AppEvent::SetCode(code)));
 
             // Error message
-            HStack::new(cx, |cx| {
-                Label::new(
-                    cx,
-                    Data::params
-                        .map(|param| format!("[{}]", param.code_version.load(Ordering::Relaxed))),
-                )
-                .width(Percentage(5.0))
-                .right(Percentage(5.0));
-                Label::new(
-                    cx,
-                    Data::plugin_state.map(|st| st.message.lock().unwrap().to_string()),
-                )
-                .width(Percentage(70.0));
-            })
-            .width(Percentage(80.0))
+            Label::new(
+                cx,
+                Data::plugin_state.map(|st| st.message.lock().unwrap().to_string()),
+            )
+            .width(Percentage(75.0))
             .bottom(Stretch(1.0));
 
             // Peak meter
