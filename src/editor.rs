@@ -91,6 +91,7 @@ pub(crate) fn create(
                 )
                 .width(Percentage(70.0));
             })
+            .width(Percentage(80.0))
             .bottom(Stretch(1.0));
 
             // Peak meter
