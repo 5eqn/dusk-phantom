@@ -18,12 +18,9 @@ pub use value::*;
 
 pub type RunError = String;
 
-pub fn run(code: &str) -> Result<f32, RunError> {
+pub fn run(code: &str) -> Result<Value, RunError> {
     let env = HashMap::new();
     let syntax = parse(code).map_err(|e| format!("Parse error: {}", e))?;
     let term = elaborate(syntax).map_err(|e| format!("Elaborate error: {}", e))?;
-    let Value::Float(x) = eval(term, &env).map_err(|e| format!("Evaluation error: {}", e))? else {
-        return Err("Evaluated result is not a float".into());
-    };
-    Ok(x)
+    eval(term, &env).map_err(|e| format!("Evaluation error: {}", e))
 }
