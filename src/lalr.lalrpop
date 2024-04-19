@@ -9,6 +9,8 @@ match {
     _
 }
 
+// Syntax
+
 pub Syntax: Syntax = <a: Let> => a;
 
 Let: Syntax = {
@@ -60,6 +62,26 @@ Atom: Syntax = {
     "(" <t: Syntax> ")" => t,
 }
 
+// Value Type
+
+ValueType: ValueType = <a: TFunc> => a;
+
+TFunc: ValueType = {
+    <f: TAtom> "->" <t: TFunc> => ValueType::Func(f.into(), t.into()),
+    <a: TAtom> => a,
+}
+
+TAtom: ValueType = {
+    "Float" => ValueType::Float,
+    "Bool" => ValueType::Bool,
+    "Int" => ValueType::Int,
+    "(" <t: ValueType> ")" => t,
+}
+
+// Literals
+
+Ident: String = <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> => s.to_string();
+
 Float: f32 = {
     <s: r"[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+\.([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
@@ -72,18 +94,3 @@ Bool: bool = {
     "true" => true,
     "false" => false,
 }
-
-ValueType: ValueType = <a: TFunc> => a;
-
-TFunc: ValueType = {
-    <f: TAtom> "->" <t: TFunc> => ValueType::Func(f.into(), t.into()),
-    <a: TAtom> => a,
-}
-
-TAtom: ValueType = {
-    "Float" => ValueType::Float,
-    "Bloat" => ValueType::Bool,
-    "(" <t: ValueType> ")" => t,
-}
-
-Ident: String = <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> => s.to_string();
