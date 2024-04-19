@@ -25,6 +25,7 @@ impl Display for Closure {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Float(f32),
+    Bool(bool),
     Lib(Lib),
     Apply(Box<Value>, Vec<Value>),
     Func(Box<ValueType>, Closure),
@@ -34,6 +35,7 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
+            Value::Bool(x) => write!(f, "Value::Bool({})", x),
             Value::Lib(x) => write!(f, "Value::Lib({})", x),
             Value::Apply(func, args) => write!(
                 f,
@@ -53,6 +55,7 @@ impl Value {
     pub fn pretty_term(&self) -> String {
         match self {
             Value::Float(x) => format!("{:.3}", x),
+            Value::Bool(x) => x.to_string(),
             Value::Lib(x) => x.to_string(),
             Value::Apply(func, args) => format!(
                 "{}({})",

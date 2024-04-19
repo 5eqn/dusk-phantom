@@ -6,6 +6,10 @@ pub enum Lib {
     Sub,
     Mul,
     Div,
+    Lt,
+    Le,
+    Gt,
+    Ge,
 }
 
 impl Display for Lib {
@@ -15,6 +19,10 @@ impl Display for Lib {
             Lib::Sub => write!(f, "sub"),
             Lib::Mul => write!(f, "mul"),
             Lib::Div => write!(f, "div"),
+            Lib::Lt => write!(f, "lt"),
+            Lib::Le => write!(f, "le"),
+            Lib::Gt => write!(f, "gt"),
+            Lib::Ge => write!(f, "ge"),
         }
     }
 }
