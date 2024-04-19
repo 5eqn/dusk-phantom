@@ -24,3 +24,38 @@ impl fmt::Display for Term {
         }
     }
 }
+
+impl Term {
+    pub fn pretty_term(&self) -> String {
+        match self {
+            Term::Float(x) => format!("{:.3}", x),
+            Term::Var(x) => x.to_string(),
+            Term::Lib(x) => x.to_string(),
+            Term::Apply(func, arg) => format!(
+                "{}({})",
+                func.pretty_atom(),
+                arg.pretty_term(),
+            ),
+            Term::Func(param, name, body) => format!(
+                "({}: {}) => {}", 
+                name, 
+                param.pretty_term(), 
+                body.pretty_term(),
+            ),
+            Term::Let(value_type, name, body, next) => format!(
+                "let {}: {} = {} in {}", 
+                name, 
+                value_type.pretty_term(), 
+                body.pretty_term(), 
+                next.pretty_term(),
+            ),
+        }
+    }
+
+    pub fn pretty_atom(&self) -> String {
+        match self {
+            f @ Term::Func(_, _, _) => format!("({})", f.pretty_term()),
+            _ => self.pretty_term(),
+        }
+    }
+}

@@ -48,3 +48,33 @@ impl Display for Value {
         }
     }
 }
+
+impl Value {
+    pub fn pretty_term(&self) -> String {
+        match self {
+            Value::Float(x) => format!("{:.3}", x),
+            Value::Lib(x) => x.to_string(),
+            Value::Apply(func, args) => format!(
+                "{}({})",
+                func.pretty_atom(),
+                args.iter()
+                    .map(|arg| arg.pretty_term())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
+            Value::Func(param, closure) => format!(
+                "({}: {}) => {}", 
+                closure.2, 
+                param.pretty_term(), 
+                closure.0.pretty_term(),
+            ),
+        }
+    }
+
+    pub fn pretty_atom(&self) -> String {
+        match self {
+            f @ Value::Func(_, _) => format!("({})", f.pretty_term()),
+            _ => self.pretty_term(),
+        }
+    }
+}
