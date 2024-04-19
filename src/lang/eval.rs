@@ -19,13 +19,17 @@ pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
                 let arg = eval(*arg, env)?;
                 closure.apply(arg)
             }
+            Value::Extern(f) => {
+                let arg = eval(*arg, env)?;
+                Ok(f(arg))
+            }
             Value::Apply(func, mut args) => {
                 args.push(eval(*arg, env)?);
                 Ok(Value::Apply(func, args))
             },
             other => Ok(Value::Apply(other.into(), vec![eval(*arg, env)?])),
         },
-        Term::Lib(x) => Ok(x.into()),
+        Term::Extern(x) => Ok(x.into()),
         Term::Func(return_type, name, body) => Ok(Value::Func(
             return_type,
             Closure(body, env.clone(), name),
@@ -54,8 +58,9 @@ pub mod tests_eval {
         let code = Term::Float(80.0);
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(result) => assert_eq!(result, Value::Float(80.0)),
-            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+            Ok(Value::Float(x)) => assert_eq!(x, 80.0),
+            Ok(result) => panic!("result of {} is not float: {}", code, result),
+            Err(err) => panic!("failed to eval {}: {}", code, err),
         }
     }
 
@@ -63,12 +68,12 @@ pub mod tests_eval {
     fn test_numeric() {
         let code = Term::Apply(
             Term::Apply(
-                Box::new(Term::Lib(Lib::Mul)),
+                Box::new(Term::Extern(Extern::Mul)),
                 Box::new(Term::Float(1.4)),
             ).into(),
             Term::Apply(
                 Term::Apply(
-                    Box::new(Term::Lib(Lib::Add)),
+                    Box::new(Term::Extern(Extern::Add)),
                     Box::new(Term::Float(2.0)),
                 ).into(),
                 Term::Float(3.0).into(),
@@ -76,8 +81,9 @@ pub mod tests_eval {
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(result) => assert_eq!(result, Value::Float(7.0)),
-            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+            Ok(Value::Float(x)) => assert_eq!(x, 7.0),
+            Ok(result) => panic!("result of {} is not float: {}", code, result),
+            Err(err) => panic!("failed to eval {}: {}", code, err),
         }
     }
 
@@ -93,8 +99,9 @@ pub mod tests_eval {
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(result) => assert_eq!(result, Value::Float(1.4)),
-            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+            Ok(Value::Float(x)) => assert_eq!(x, 1.4),
+            Ok(result) => panic!("result of {} is not float: {}", code, result),
+            Err(err) => panic!("failed to eval {}: {}", code, err),
         }
     }
 
@@ -108,8 +115,9 @@ pub mod tests_eval {
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(result) => assert_eq!(result, Value::Float(80.0)),
-            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+            Ok(Value::Float(x)) => assert_eq!(x, 80.0),
+            Ok(result) => panic!("result of {} is not float: {}", code, result),
+            Err(err) => panic!("failed to eval {}: {}", code, err),
         }
     }
 
@@ -122,8 +130,9 @@ pub mod tests_eval {
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(result) => assert_eq!(result, Value::Float(80.0)),
-            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+            Ok(Value::Float(x)) => assert_eq!(x, 80.0),
+            Ok(result) => panic!("result of {} is not float: {}", code, result),
+            Err(err) => panic!("failed to eval {}: {}", code, err),
         }
     }
 }

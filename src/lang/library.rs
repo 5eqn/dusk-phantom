@@ -1,8 +1,8 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 use super::*;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Lib {
+pub enum Extern {
     Add,
     Sub,
     Mul,
@@ -13,56 +13,65 @@ pub enum Lib {
     Ge,
 }
 
-impl Display for Lib {
+impl Display for Extern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Lib::Add => write!(f, "add"),
-            Lib::Sub => write!(f, "sub"),
-            Lib::Mul => write!(f, "mul"),
-            Lib::Div => write!(f, "div"),
-            Lib::Lt => write!(f, "lt"),
-            Lib::Le => write!(f, "le"),
-            Lib::Gt => write!(f, "gt"),
-            Lib::Ge => write!(f, "ge"),
+            Extern::Add => write!(f, "add"),
+            Extern::Sub => write!(f, "sub"),
+            Extern::Mul => write!(f, "mul"),
+            Extern::Div => write!(f, "div"),
+            Extern::Lt => write!(f, "lt"),
+            Extern::Le => write!(f, "le"),
+            Extern::Gt => write!(f, "gt"),
+            Extern::Ge => write!(f, "ge"),
         }
     }
 }
 
-impl From<Lib> for Value {
-    fn from(lib: Lib) -> Self {
+impl From<Extern> for Value {
+    fn from(lib: Extern) -> Self {
         match lib {
-            Lib::Add => {
-                let f: Box<FF2F> = Box::new(|x, y| x + y);
+            Extern::Add => {
+                let f: Arc<FF2F> = Arc::new(|x, y| x + y);
                 f.into()
             },
-            Lib::Sub => {
-                let f: Box<FF2F> = Box::new(|x, y| x - y);
+            Extern::Sub => {
+                let f: Arc<FF2F> = Arc::new(|x, y| x - y);
                 f.into()
             },
-            Lib::Mul => {
-                let f: Box<FF2F> = Box::new(|x, y| x * y);
+            Extern::Mul => {
+                let f: Arc<FF2F> = Arc::new(|x, y| x * y);
                 f.into()
             },
-            Lib::Div => {
-                let f: Box<FF2F> = Box::new(|x, y| x / y);
+            Extern::Div => {
+                let f: Arc<FF2F> = Arc::new(|x, y| x / y);
                 f.into()
             },
-            Lib::Lt => {
-                let f: Box<FF2B> = Box::new(|x, y| x < y);
+            Extern::Lt => {
+                let f: Arc<FF2B> = Arc::new(|x, y| x < y);
                 f.into()
             },
-            Lib::Le => {
-                let f: Box<FF2B> = Box::new(|x, y| x <= y);
+            Extern::Le => {
+                let f: Arc<FF2B> = Arc::new(|x, y| x <= y);
                 f.into()
             },
-            Lib::Gt => {
-                let f: Box<FF2B> = Box::new(|x, y| x > y);
+            Extern::Gt => {
+                let f: Arc<FF2B> = Arc::new(|x, y| x > y);
                 f.into()
             },
-            Lib::Ge => {
-                let f: Box<FF2B> = Box::new(|x, y| x >= y);
+            Extern::Ge => {
+                let f: Arc<FF2B> = Arc::new(|x, y| x >= y);
                 f.into()
             }
+        }
+    }
+}
+
+impl From<Extern> for ValueType {
+    fn from(lib: Extern) -> Self {
+        match lib {
+            Extern::Add | Extern::Sub | Extern::Mul | Extern::Div => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)))),
+            Extern::Lt | Extern::Le | Extern::Gt | Extern::Ge => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)))),
         }
     }
 }

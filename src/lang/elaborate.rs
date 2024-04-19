@@ -4,16 +4,6 @@ pub type ElaborateError = String;
 
 pub type Ctx = HashMap<String, ValueType>;
 
-/// float -> float -> float
-fn type_op() -> ValueType {
-    ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float))))
-}
-
-/// float -> float -> bool
-fn type_cmp() -> ValueType {
-    ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool))))
-}
-
 pub fn infer(syntax: Syntax, ctx: Ctx) -> Result<(Term, ValueType), ElaborateError> {
     match syntax {
         Syntax::Float(value) => Ok((Term::Float(value), ValueType::Float)),
@@ -22,16 +12,7 @@ pub fn infer(syntax: Syntax, ctx: Ctx) -> Result<(Term, ValueType), ElaborateErr
             Some(value_type) => Ok((Term::Var(name), value_type.clone())),
             None => Err(format!("Variable not found: {}", name)),
         },
-        Syntax::Lib(lib) => match lib {
-            Lib::Add => Ok((Term::Lib(Lib::Add), type_op())),
-            Lib::Sub => Ok((Term::Lib(Lib::Sub), type_op())),
-            Lib::Mul => Ok((Term::Lib(Lib::Mul), type_op())),
-            Lib::Div => Ok((Term::Lib(Lib::Div), type_op())),
-            Lib::Lt => Ok((Term::Lib(Lib::Lt), type_cmp())),
-            Lib::Le => Ok((Term::Lib(Lib::Le), type_cmp())),
-            Lib::Gt => Ok((Term::Lib(Lib::Gt), type_cmp())),
-            Lib::Ge => Ok((Term::Lib(Lib::Ge), type_cmp())),
-        },
+        Syntax::Extern(lib) => Ok((Term::Extern(lib.clone()), lib.into())),
         Syntax::Apply(func, arg) => {
             let (func_term, func_type) = infer(*func, ctx.clone())?;
             match func_type {
