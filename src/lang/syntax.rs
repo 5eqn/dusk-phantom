@@ -9,16 +9,18 @@ pub enum Syntax {
     Lib(Lib),
     Apply(Box<Syntax>, Box<Syntax>),
     Func(Box<ValueType>, String, Box<Syntax>),
+    Let(Box<ValueType>, String, Box<Syntax>, Box<Syntax>),
 }
 
 impl fmt::Display for Syntax {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Syntax::Float(value) => write!(f, "{}", value),
-            Syntax::Var(name) => write!(f, "{}", name),
-            Syntax::Lib(lib) => write!(f, "{}", lib),
-            Syntax::Apply(func, arg) => write!(f, "({} {})", func, arg),
-            Syntax::Func(return_type, name, body) => write!(f, "({}: {} => {})", name, return_type, body),
+            Syntax::Float(value) => write!(f, "Syntax::Float({:.3})", value),
+            Syntax::Var(name) => write!(f, "Syntax::Var({}.into())", name),
+            Syntax::Lib(lib) => write!(f, "Syntax::Lib({})", lib),
+            Syntax::Apply(func, arg) => write!(f, "Syntax::Apply({}.into(), {}.into())", func, arg),
+            Syntax::Func(return_type, name, body) => write!(f, "Syntax::Func({}.into(), {}.into(), {}.into())", name, return_type, body),
+            Syntax::Let(value_type, name, value, body) => write!(f, "Syntax::Let({}.into(), {}.into(), {}.into(), {}.into())", name, value_type, value, body),
         }
     }
 }

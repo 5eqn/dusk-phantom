@@ -35,6 +35,12 @@ pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
             return_type,
             Closure(body, env.clone(), name),
         )),
+        Term::Let(_, name, body, next) => {
+            let value = eval(*body, env)?;
+            let mut env = env.clone();
+            env.insert(name, value);
+            eval(*next, &env)
+        }
     }
 }
 
@@ -88,6 +94,21 @@ pub mod tests_eval {
         let env = Env::new();
         match eval(code.clone(), &env) {
             Ok(result) => assert_eq!(result, Value::Float(1.4)),
+            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_let() {
+        let code = Term::Let(
+            ValueType::Float.into(),
+            "x".to_string(),
+            Box::new(Term::Float(80.0)),
+            Box::new(Term::Var("x".to_string())),
+        );
+        let env = Env::new();
+        match eval(code.clone(), &env) {
+            Ok(result) => assert_eq!(result, Value::Float(80.0)),
             Err(err) => panic!("failed to eval {:?}: {}", code, err),
         }
     }
