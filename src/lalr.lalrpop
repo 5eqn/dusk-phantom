@@ -13,12 +13,21 @@ pub Syntax: Syntax = <a: Let> => a;
 
 Let: Syntax = {
     "let" <n: Ident> ":" <t: ValueType> "=" <l: Let> "in" <r: Let> => Syntax::Let(t.into(), n, l.into(), r.into()),
+    "if" <a: Let> "then" <b: Let> "else" <c: Let> => Syntax::Alt(a.into(), b.into(), c.into()),
     <s: Func> => s,
 }
 
 Func: Syntax = {
     "(" <n: Ident> ":" <t: ValueType> ")" "=>" <s: Func> => Syntax::Func(t.into(), n, s.into()),
-    <s: AddExpr> => s,
+    <s: CmpExpr> => s,
+}
+
+CmpExpr: Syntax = {
+    <l: CmpExpr> "<" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Lt).into(), l.into()).into(), r.into()),
+    <l: CmpExpr> ">" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Gt).into(), l.into()).into(), r.into()),
+    <l: CmpExpr> "<=" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Le).into(), l.into()).into(), r.into()),
+    <l: CmpExpr> ">=" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Ge).into(), l.into()).into(), r.into()),
+    <l: AddExpr> => l,
 }
 
 AddExpr: Syntax = {
@@ -40,6 +49,7 @@ Apply: Syntax = {
 
 Atom: Syntax = {
     <n: Float> => Syntax::Float(n),
+    <n: Bool> => Syntax::Bool(n),
     <i: Ident> => Syntax::Var(i),
     "(" <t: Syntax> ")" => t,
 }
@@ -49,6 +59,11 @@ Float: f32 = {
     <s: r"[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+\.([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+[eE][+-]?[0-9]+"> => s.parse::<f32>().unwrap(),
+}
+
+Bool: bool = {
+    "true" => true,
+    "false" => false,
 }
 
 ValueType: ValueType = <a: TFunc> => a;

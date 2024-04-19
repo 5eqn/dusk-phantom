@@ -133,14 +133,10 @@ impl Plugin for DuskPhantom {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // Calculate gain
-        let gain: f32 = match self.plugin_state.code_value.lock().unwrap().clone() {
-            Value::Float(x) => x,
-            Value::Func(_, closure) => match closure.apply(Value::Float(1.0)) {
-                Ok(Value::Float(x)) => x,
-                _ => 1.0,
-            }
-            _ => 1.0,
+        // Calculate wave shaper
+        let ws = match self.plugin_state.code_value.lock().unwrap().clone() {
+            Value::Func(_, closure) => Some(closure),
+            _ => None,
         };
 
         // Iterate all samples
@@ -148,7 +144,13 @@ impl Plugin for DuskPhantom {
             let mut amplitude = 0.0;
             let num_samples = channel_samples.len();
             for sample in channel_samples {
-                *sample *= gain;
+                // Apply wave shaper
+                if let Some(ws) = &ws {
+                    let arg = Value::Float(*sample);
+                    if let Ok(Value::Float(result)) = ws.apply(arg) {
+                        *sample = result;
+                    }
+                }
                 amplitude += *sample;
             }
 

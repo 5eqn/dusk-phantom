@@ -9,6 +9,7 @@ pub type EvalError = String;
 pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
     match term {
         Term::Float(x) => Ok(Value::Float(x)),
+        Term::Bool(x) => Ok(Value::Bool(x)),
         Term::Var(v) => env
             .get(&v)
             .map_or(Err(format!("{} is not in env", v)), |v| Ok(v.clone())),
@@ -23,6 +24,10 @@ pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
                 (Value::Lib(Lib::Sub), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x - y)),
                 (Value::Lib(Lib::Mul), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x * y)),
                 (Value::Lib(Lib::Div), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x / y)),
+                (Value::Lib(Lib::Lt), Value::Float(x), Value::Float(y)) => Ok(Value::Bool(*x < y)),
+                (Value::Lib(Lib::Le), Value::Float(x), Value::Float(y)) => Ok(Value::Bool(*x <= y)),
+                (Value::Lib(Lib::Gt), Value::Float(x), Value::Float(y)) => Ok(Value::Bool(*x > y)),
+                (Value::Lib(Lib::Ge), Value::Float(x), Value::Float(y)) => Ok(Value::Bool(*x >= y)),
                 (func, _, arg) => {
                     args.push(arg);
                     Ok(Value::Apply(func.into(), args))
@@ -41,6 +46,11 @@ pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
             env.insert(name, value);
             eval(*next, &env)
         }
+        Term::Alt(cond, then, else_) => match eval(*cond, env)? {
+            Value::Bool(true) => eval(*then, env),
+            Value::Bool(false) => eval(*else_, env),
+            other => Err(format!("{} is not a boolean", other)),
+        },
     }
 }
 
@@ -105,6 +115,20 @@ pub mod tests_eval {
             "x".to_string(),
             Box::new(Term::Float(80.0)),
             Box::new(Term::Var("x".to_string())),
+        );
+        let env = Env::new();
+        match eval(code.clone(), &env) {
+            Ok(result) => assert_eq!(result, Value::Float(80.0)),
+            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_alt() {
+        let code = Term::Alt(
+            Box::new(Term::Bool(true)),
+            Box::new(Term::Float(80.0)),
+            Box::new(Term::Float(90.0)),
         );
         let env = Env::new();
         match eval(code.clone(), &env) {

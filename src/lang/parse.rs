@@ -109,4 +109,23 @@ pub mod tests_expr {
             Err(err) => panic!("failed to parse {}: {}", code, err),
         }
     }
+
+    #[test]
+    fn test_alt() {
+        let code = "if 1.4 < 2.0 then 1.4 else 2.0";
+        match parse(code) {
+            Ok(result) => assert_eq!(result, Syntax::Alt(
+                Box::new(Syntax::Apply(
+                    Box::new(Syntax::Apply(
+                        Box::new(Syntax::Lib(Lib::Lt)),
+                        Box::new(Syntax::Float(1.4)),
+                    )),
+                    Box::new(Syntax::Float(2.0)),
+                )),
+                Box::new(Syntax::Float(1.4)),
+                Box::new(Syntax::Float(2.0)),
+            )),
+            Err(err) => panic!("failed to parse {}: {}", code, err),
+        }
+    }
 }
