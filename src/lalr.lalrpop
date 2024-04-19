@@ -9,7 +9,12 @@ match {
     _
 }
 
-pub Syntax: Syntax = <a: Func> => a;
+pub Syntax: Syntax = <a: Let> => a;
+
+Let: Syntax = {
+    "let" <n: Ident> ":" <t: ValueType> "=" <l: Let> "in" <r: Let> => Syntax::Let(t.into(), n, l.into(), r.into()),
+    <s: Func> => s,
+}
 
 Func: Syntax = {
     "(" <n: Ident> ":" <t: ValueType> ")" "=>" <s: Func> => Syntax::Func(t.into(), n, s.into()),

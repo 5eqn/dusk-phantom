@@ -95,4 +95,18 @@ pub mod tests_expr {
             Err(err) => panic!("failed to parse {}: {}", code, err),
         }
     }
+
+    #[test]
+    fn test_let() {
+        let code = "let x: float = 80 in x";
+        match parse(code) {
+            Ok(result) => assert_eq!(result, Syntax::Let(
+                Box::new(ValueType::Float),
+                "x".to_string(),
+                Box::new(Syntax::Float(80.0)),
+                Box::new(Syntax::Var("x".to_string())),
+            )),
+            Err(err) => panic!("failed to parse {}: {}", code, err),
+        }
+    }
 }

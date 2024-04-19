@@ -41,6 +41,16 @@ pub fn infer(syntax: Syntax, ctx: Ctx) -> Result<(Term, ValueType), ElaborateErr
             let (body_term, body_type) = infer(*body, new_ctx)?;
             Ok((Term::Func(param_type.clone(), name, Box::new(body_term)), ValueType::Func(param_type, Box::new(body_type))))
         }
+        Syntax::Let(value_type, name, body, next) => {
+            let body_term = check(*body, ctx.clone(), *value_type.clone())?;
+            let new_ctx = {
+                let mut new_ctx = ctx.clone();
+                new_ctx.insert(name.clone(), *value_type.clone());
+                new_ctx
+            };
+            let (next_term, next_type) = infer(*next, new_ctx)?;
+            Ok((Term::Let(value_type, name, Box::new(body_term), Box::new(next_term)), next_type))
+        }
     }
 }
 
@@ -86,6 +96,29 @@ pub mod tests_elaborate {
                     Box::new(Term::Var("x".to_string())),
                 ));
                 assert_eq!(value_type, ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)));
+            }
+            Err(err) => panic!("failed to infer {:?}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_let() {
+        let code = Syntax::Let(
+            Box::new(ValueType::Float),
+            "x".to_string(),
+            Box::new(Syntax::Float(80.0)),
+            Box::new(Syntax::Var("x".to_string())),
+        );
+        let ctx = Ctx::new();
+        match infer(code.clone(), ctx) {
+            Ok((term, value_type)) => {
+                assert_eq!(term, Term::Let(
+                    ValueType::Float.into(),
+                    "x".to_string(),
+                    Box::new(Term::Float(80.0)),
+                    Box::new(Term::Var("x".to_string())),
+                ));
+                assert_eq!(value_type, ValueType::Float);
             }
             Err(err) => panic!("failed to infer {:?}: {}", code, err),
         }

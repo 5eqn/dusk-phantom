@@ -12,6 +12,16 @@ impl Closure {
     }
 }
 
+impl Display for Closure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Closure({}.into(), HashMap::from([{}]), {}.into())", 
+            self.0, 
+            self.1.iter().map(|(k, v)| format!("({}.into(), {})", k, v)).collect::<Vec<_>>().join(", "),
+            self.2
+        )
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Float(f32),
@@ -23,18 +33,18 @@ pub enum Value {
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Float(x) => write!(f, "{}", x),
-            Value::Lib(x) => write!(f, "{}", x),
+            Value::Float(x) => write!(f, "Value::Float({:.3})", x),
+            Value::Lib(x) => write!(f, "Value::Lib({})", x),
             Value::Apply(func, args) => write!(
                 f,
-                "{}({})",
+                "Value::Apply({}.into(), vec![{}])",
                 func,
                 args.iter()
                     .map(|arg| arg.to_string())
                     .collect::<Vec<_>>()
                     .join(", "),
             ),
-            Value::Func(param, body) => write!(f, "({}: {}) => {}", body.2, param, body.0),
+            Value::Func(param, body) => write!(f, "Value::Func({}.into(), {})", param, body),
         }
     }
 }
