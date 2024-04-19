@@ -18,7 +18,7 @@ Let: Syntax = {
 }
 
 Func: Syntax = {
-    "(" <n: Ident> ":" <t: ValueType> ")" "=>" <s: Func> => Syntax::Func(t.into(), n, s.into()),
+    "(" <n: Ident> ":" <t: ValueType> ")" "=>" <s: Syntax> => Syntax::Func(t.into(), n, s.into()),
     <s: CmpExpr> => s,
 }
 
@@ -37,9 +37,14 @@ AddExpr: Syntax = {
 }
 
 MulExpr: Syntax = {
-    <l: MulExpr> "*" <r: Atom> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Mul).into(), l.into()).into(), r.into()),
-    <l: MulExpr> "/" <r: Atom> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Div).into(), l.into()).into(), r.into()),
-    <l: Apply> => l,
+    <l: MulExpr> "*" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Mul).into(), l.into()).into(), r.into()),
+    <l: MulExpr> "/" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Div).into(), l.into()).into(), r.into()),
+    <l: UnaryExpr> => l,
+}
+
+UnaryExpr: Syntax = {
+    "-" <x: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Sub).into(), Syntax::Float(0.0).into()).into(), x.into()),
+    <x: Apply> => x,
 }
 
 Apply: Syntax = {
