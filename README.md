@@ -13,9 +13,8 @@ For more info, check `Makefile`.
 ## Syntax
 
 ```dp
-let lp: Float -> Float = (i: Float) => if i < 8 then 1 else 0 in
-
-(f: Float -> Float) => (i: Float) => lp(i) * f(i) / 96
+let lp: Float -> Float = (i: Float) => if i < 300 then 1 else 0 in
+(f: Float -> Float) => (i: Float) => f(i) * lp(i)
 ```
 
 ```dp

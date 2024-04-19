@@ -44,8 +44,8 @@ impl Value {
         }
     }
 
-    pub fn collect(self, range: impl Iterator<Item = usize>) -> impl Iterator<Item = Value> {
-        range.map(move |i| self.clone().apply(Value::Float(i as f32)))
+    pub fn collect(self, range: impl Iterator<Item = usize>) -> Vec<Value> {
+        range.map(move |i| self.clone().apply(Value::Float(i as f32))).collect()
     }
 }
 

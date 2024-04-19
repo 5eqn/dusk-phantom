@@ -194,7 +194,7 @@ impl Plugin for DuskPhantom {
 
                 // Apply new magnitudes
                 let profile_3 = std::time::Instant::now();
-                for (val, complex) in result.zip(&mut self.local_state.complex_fft_buffer) {
+                for (val, complex) in result.into_iter().zip(&mut self.local_state.complex_fft_buffer) {
                     let norm = match val {
                         Value::Float(f) => f,
                         _ => 0.0,
