@@ -3,6 +3,7 @@ use std::fmt;
 #[derive(Clone, PartialEq, Debug)]
 pub enum ValueType {
     Float,
+    Int,
     Bool,
     Func(Box<ValueType>, Box<ValueType>),
 }
@@ -11,6 +12,7 @@ impl fmt::Display for ValueType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ValueType::Float => write!(f, "ValueType::Float"),
+            ValueType::Int => write!(f, "ValueType::Int"),
             ValueType::Bool => write!(f, "ValueType::Bool"),
             ValueType::Func(param, ret) => write!(f, "ValueType::Func({}.into(), {}.into())", param, ret),
         }
@@ -21,6 +23,7 @@ impl ValueType {
     pub fn pretty_term(&self) -> String {
         match self {
             ValueType::Float => "Float".into(),
+            ValueType::Int => "Int".into(),
             ValueType::Bool => "Bool".into(),
             ValueType::Func(param, ret) => format!("{} -> {}", param.pretty_atom(), ret.pretty_term()),
         }

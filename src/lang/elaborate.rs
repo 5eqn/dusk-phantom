@@ -7,6 +7,7 @@ pub type Ctx = HashMap<String, ValueType>;
 pub fn infer(syntax: Syntax, ctx: Ctx) -> Result<(Term, ValueType), ElaborateError> {
     match syntax {
         Syntax::Float(value) => Ok((Term::Float(value), ValueType::Float)),
+        Syntax::Int(value) => Ok((Term::Int(value), ValueType::Int)),
         Syntax::Bool(value) => Ok((Term::Bool(value), ValueType::Bool)),
         Syntax::Var(name) => match ctx.get(&name) {
             Some(value_type) => Ok((Term::Var(name), value_type.clone())),
@@ -55,10 +56,16 @@ pub fn infer(syntax: Syntax, ctx: Ctx) -> Result<(Term, ValueType), ElaborateErr
 pub fn check(syntax: Syntax, ctx: Ctx, expected: ValueType) -> Result<Term, ElaborateError> {
     let (term, inferred_type) = infer(syntax, ctx)?;
     if inferred_type == expected {
-        Ok(term)
-    } else {
-        Err(format!("Type mismatch: {} != {}", inferred_type, expected))
+        return Ok(term);
     }
+
+    // Translate literal int to float
+    if let (Term::Int(i), ValueType::Float) = (term, &expected) {
+        return Ok(Term::Float(i as f32));
+    }
+
+    // Unable to cast
+    Err(format!("Type mismatch: {} != {}", inferred_type, expected))
 }
 
 pub fn unify(t1: ValueType, t2: ValueType) -> Result<ValueType, ElaborateError> {
@@ -87,6 +94,16 @@ pub mod tests_elaborate {
                 assert_eq!(term, Term::Float(80.0));
                 assert_eq!(value_type, ValueType::Float);
             }
+            Err(err) => panic!("failed to infer {:?}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_cast() {
+        let code = Syntax::Int(80);
+        let ctx = Ctx::new();
+        match check(code.clone(), ctx, ValueType::Float) {
+            Ok(term) => assert_eq!(term, Term::Float(80.0)),
             Err(err) => panic!("failed to infer {:?}: {}", code, err),
         }
     }

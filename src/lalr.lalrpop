@@ -54,17 +54,19 @@ Apply: Syntax = {
 
 Atom: Syntax = {
     <n: Float> => Syntax::Float(n),
+    <n: Int> => Syntax::Int(n),
     <n: Bool> => Syntax::Bool(n),
     <i: Ident> => Syntax::Var(i),
     "(" <t: Syntax> ")" => t,
 }
 
 Float: f32 = {
-    <s: r"0|[1-9][0-9]*"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+\.([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+[eE][+-]?[0-9]+"> => s.parse::<f32>().unwrap(),
 }
+
+Int: i32 = <s: r"0|[1-9][0-9]*"> => s.parse::<i32>().unwrap();
 
 Bool: bool = {
     "true" => true,
