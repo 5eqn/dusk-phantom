@@ -75,7 +75,7 @@ pub(crate) fn create(
             // Code area
             Textbox::new_multiline(cx, Data::params.map(|p| p.code.lock().unwrap().to_string()), true)
                 .font_family(vec![FamilyOwned::Name(String::from(JB_MONO))])
-                .width(Percentage(80.0))
+                .width(Percentage(75.0))
                 .height(Pixels(360.0))
                 .bottom(Stretch(1.0))
                 .on_edit(|cx, code| cx.emit(AppEvent::SetCode(code)));
@@ -84,6 +84,14 @@ pub(crate) fn create(
             Label::new(
                 cx,
                 Data::plugin_state.map(|st| st.message.lock().unwrap().to_string()),
+            )
+            .width(Percentage(75.0))
+            .bottom(Stretch(1.0));
+
+            // Profiling message
+            Label::new(
+                cx,
+                Data::plugin_state.map(|st| st.profiler.lock().unwrap().to_string()),
             )
             .width(Percentage(75.0))
             .bottom(Stretch(1.0));
