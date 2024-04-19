@@ -1,5 +1,6 @@
 use crate::PluginState;
 use crate::lang::*;
+use crate::assets::*;
 use nih_plug::prelude::{util, Editor};
 use nih_plug_vizia::vizia::prelude::*;
 use nih_plug_vizia::widgets::*;
@@ -51,6 +52,7 @@ pub(crate) fn create(
     create_vizia_editor(editor_state, ViziaTheming::Custom, move |cx, _| {
         assets::register_noto_sans_light(cx);
         assets::register_noto_sans_thin(cx);
+        register_jb_mono_regular(cx);
 
         Data {
             params: params.clone(),
@@ -65,13 +67,12 @@ pub(crate) fn create(
                 .font_weight(FontWeightKeyword::Thin)
                 .font_size(30.0)
                 .height(Pixels(50.0))
-                .child_top(Stretch(1.0))
-                .child_bottom(Stretch(1.0));
-            Label::new(cx, "Code Your EQ Here").bottom(Pixels(10.0));
+                .top(Stretch(1.0));
+            Label::new(cx, "Type Your EQ Here").bottom(Pixels(10.0));
 
             // Code area
             Textbox::new_multiline(cx, Data::params.map(|p| p.code.lock().unwrap().to_string()), true)
-                .font_family(vec![FamilyOwned::Monospace])
+                .font_family(vec![FamilyOwned::Name(String::from(JB_MONO))])
                 .width(Percentage(80.0))
                 .height(Pixels(360.0))
                 .bottom(Stretch(1.0))
