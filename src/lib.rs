@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 mod constant;
 mod editor;
 mod lang;
+mod assets;
 
 /// This is mostly identical to the gain example, minus some fluff, and with a GUI.
 pub struct DuskPhantom {
@@ -116,7 +117,7 @@ impl Plugin for DuskPhantom {
 
         // Init code state
         let (msg, code) = match run(&self.params.code.lock().unwrap()) {
-            Ok(val) => (format!("Compilation success: {}", val), val),
+            Ok(val) => (format!("Compilation success: {}", val.pretty_term()), val),
             Err(err) => (err, Value::Float(1.0)),
         };
         *self.plugin_state.message.lock().unwrap() = msg;
