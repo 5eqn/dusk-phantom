@@ -6,7 +6,7 @@ use super::*;
 pub enum Term {
     Float(f32),
     Bool(bool),
-    Var(String),
+    Var(Index),
     Extern(Extern),
     Apply(Box<Term>, Box<Term>),
     Func(Box<ValueType>, String, Box<Term>),

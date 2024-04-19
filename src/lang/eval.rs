@@ -1,15 +1,13 @@
-use std::collections::HashMap;
-
 use super::*;
 
-pub type Env = HashMap<String, Value>;
+pub type Env = Vec<Value>;
 
 pub fn eval(term: Term, env: &Env) -> Value {
     match term {
         Term::Float(x) => Value::Float(x),
         Term::Bool(x) => Value::Bool(x),
         Term::Var(v) => env
-            .get(&v)
+            .get(env.len() - v as usize - 1)
             .unwrap()
             .clone(),
         Term::Apply(func, arg) => eval(*func, env).apply(eval(*arg, env)),
@@ -18,10 +16,10 @@ pub fn eval(term: Term, env: &Env) -> Value {
             return_type,
             Closure(body, env.clone(), name),
         ),
-        Term::Let(_, name, body, next) => {
+        Term::Let(_, _, body, next) => {
             let value = eval(*body, env);
             let mut env = env.clone();
-            env.insert(name, value);
+            env.push(value);
             eval(*next, &env)
         }
         Term::Alt(cond, then, else_) => match eval(*cond, env) {
@@ -75,7 +73,7 @@ pub mod tests_eval {
             Box::new(Term::Func(
                 Box::new(ValueType::Float),
                 "x".to_string(),
-                Box::new(Term::Var("x".to_string())),
+                Box::new(Term::Var(0)),
             )),
             Box::new(Term::Float(1.4)),
         );
@@ -92,7 +90,7 @@ pub mod tests_eval {
             ValueType::Float.into(),
             "x".to_string(),
             Box::new(Term::Float(80.0)),
-            Box::new(Term::Var("x".to_string())),
+            Box::new(Term::Var(0)),
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
