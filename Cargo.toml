@@ -29,6 +29,7 @@ atomic_float = "0.1"
 serde = "1.0.198"
 lalrpop-util = { version = "0.20.2", features = ["lexer", "unicode"] }
 hexf-parse = "0.2.1"
+realfft = "3.3.0"
 
 [profile.release]
 lto = "thin"

@@ -45,8 +45,21 @@ impl Value {
         }
     }
 
-    pub fn make_arr(self, range: impl Iterator<Item = usize>) -> impl Iterator<Item = Value> {
+    pub fn collect(self, range: impl Iterator<Item = usize>) -> impl Iterator<Item = Value> {
         range.map(move |i| self.clone().apply(Value::Int(i as i32)))
+    }
+}
+
+impl From<Vec<f32>> for Value {
+    fn from(values: Vec<f32>) -> Self {
+        let indexer: Arc<I2F> = Arc::new(move |i| {
+            if i < 0 || i as usize >= values.len() {
+                0.0
+            } else {
+                values[i as usize]
+            }
+        });
+        indexer.into()
     }
 }
 

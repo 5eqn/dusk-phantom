@@ -1,9 +1,9 @@
-use atomic_float::AtomicF32;
-use constant::{DEFAULT_CODE, PEAK_METER_DECAY_MS};
+use constant::*;
 use lang::*;
 use nih_plug::prelude::*;
 use nih_plug_vizia::ViziaState;
-use std::{iter::zip, sync::{Arc, Mutex}};
+use realfft::{num_complex::Complex32, ComplexToReal, RealFftPlanner, RealToComplex};
+use std::sync::{Arc, Mutex};
 
 mod constant;
 mod editor;
@@ -20,10 +20,22 @@ pub struct DuskPhantom {
 struct LocalState {
     /// Needed to normalize the peak meter's response based on the sample rate.
     peak_meter_decay_weight: f32,
+
+    /// The algorithm for the FFT operation.
+    r2c_plan: Arc<dyn RealToComplex<f32>>,
+
+    /// The algorithm for the IFFT operation.
+    c2r_plan: Arc<dyn ComplexToReal<f32>>,
+
+    /// The output of our real->complex FFT.
+    complex_fft_buffer: Vec<Complex32>,
+    
+    /// An adapter that performs most of the overlap-add algorithm for us.
+    stft: util::StftHelper,
 }
 
 struct PluginState {
-    peak_meter: AtomicF32,
+    debug: Mutex<String>,
     profiler: Mutex<String>,
     message: Mutex<String>,
     code_value: Mutex<Option<Value>>,
@@ -43,13 +55,21 @@ struct PluginParams {
 
 impl Default for DuskPhantom {
     fn default() -> Self {
+        let mut planner = RealFftPlanner::new();
+        let r2c_plan = planner.plan_fft_forward(FFT_WINDOW_SIZE);
+        let c2r_plan = planner.plan_fft_inverse(FFT_WINDOW_SIZE);
+        let complex_fft_buffer = r2c_plan.make_output_vec();
         Self {
             params: PluginParams::default().into(),
             local_state: LocalState {
                 peak_meter_decay_weight: 1.0,
+                stft: util::StftHelper::new(2, WINDOW_SIZE, FFT_WINDOW_SIZE - WINDOW_SIZE),
+                r2c_plan,
+                c2r_plan,
+                complex_fft_buffer,
             },
             plugin_state: PluginState {
-                peak_meter: AtomicF32::new(util::MINUS_INFINITY_DB),
+                debug: Mutex::new("".into()),
                 profiler: Mutex::new("".into()),
                 message: Mutex::new("".into()),
                 code_value: Mutex::new(None),
@@ -109,7 +129,7 @@ impl Plugin for DuskPhantom {
         &mut self,
         _audio_io_layout: &AudioIOLayout,
         buffer_config: &BufferConfig,
-        _context: &mut impl InitContext<Self>,
+        context: &mut impl InitContext<Self>,
     ) -> bool {
         // After `PEAK_METER_DECAY_MS` milliseconds of pure silence, the peak meter's value should
         // have dropped by 12 dB
@@ -125,8 +145,20 @@ impl Plugin for DuskPhantom {
         *self.plugin_state.message.lock().unwrap() = msg;
         *self.plugin_state.code_value.lock().unwrap() = code;
 
+        // The plugin's latency consists of the block size from the overlap-add procedure and half
+        // of the filter kernel's size (since we're using a linear phase/symmetrical convolution
+        // kernel)
+        context.set_latency_samples(self.local_state.stft.latency_samples() + (FILTER_WINDOW_SIZE as u32 / 2));
+
         // Initialization success
         true
+    }
+
+    fn reset(&mut self) {
+        // Normally we'd also initialize the STFT helper for the correct channel count here, but we
+        // only do stereo so that's not necessary. Setting the block size also zeroes out the
+        // buffers.
+        self.local_state.stft.set_block_size(WINDOW_SIZE);
     }
 
     fn process(
@@ -135,74 +167,66 @@ impl Plugin for DuskPhantom {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // Bypass if there is no code
-        let profile_1 = std::time::Instant::now();
-        let Some(code_value) = self.plugin_state.code_value.lock().unwrap().clone() else {
-            return ProcessStatus::Normal;
-        };
-
-        // Calculate array indexer
-        let profile_2 = std::time::Instant::now();
-        let arr = [1.0, -1.0];
-        let indexer: Arc<I2F> = Arc::new(move |x| {
-            let i = x as usize;
-            if i < arr.len() {
-                arr[i]
-            } else {
-                0.0
-            }
-        });
-
-        // Calculate product array
-        let profile_3 = std::time::Instant::now();
-        let product_array = code_value.apply(indexer.into());
-
-        // Iterate all samples
-        let profile_4 = std::time::Instant::now();
-        let gains: Vec<_> = product_array.clone().make_arr(0..=1).map(|v| match v {
-            Value::Float(f) => f,
-            _ => 0.0,
-        }).collect();
-        for channel_samples in buffer.iter_samples() {
-            // Apply gain
-            let mut amplitude = 0.0;
-            let num_samples = channel_samples.len();
-            for (sample, gain) in zip(channel_samples, gains.iter()) {
-                *sample *= *gain;
-                amplitude += *sample;
-            }
-
-            // To save resources, a plugin can (and probably should!) only perform expensive
-            // calculations that are only displayed on the GUI while the GUI is open
-            if self.params.editor_state.is_open() {
-                amplitude = (amplitude / num_samples as f32).abs();
-                let current_peak_meter = self
-                    .plugin_state
-                    .peak_meter
-                    .load(std::sync::atomic::Ordering::Relaxed);
-                let new_peak_meter = if amplitude > current_peak_meter {
-                    amplitude
-                } else {
-                    current_peak_meter * self.local_state.peak_meter_decay_weight
-                        + amplitude * (1.0 - self.local_state.peak_meter_decay_weight)
+        self.local_state.stft
+            .process_overlap_add(buffer, 1, |_channel_idx, real_fft_buffer| {
+                // Bypass if there is no code
+                let Some(code_value) = self.plugin_state.code_value.lock().unwrap().clone() else {
+                    return;
                 };
 
-                self.plugin_state
-                    .peak_meter
-                    .store(new_peak_meter, std::sync::atomic::Ordering::Relaxed)
-            }
-        }
+                // Forward FFT, `real_fft_buffer` already is already padded with zeroes, and the
+                // padding from the last iteration will have already been added back to the start of
+                // the buffer
+                let profile_1 = std::time::Instant::now();
+                self.local_state.r2c_plan
+                    .process_with_scratch(real_fft_buffer, &mut self.local_state.complex_fft_buffer, &mut [])
+                    .unwrap();
 
-        // Store profiling result
-        let profile = format!(
-            "Profile: {} ns, {} ns, {} ns, {} ns",
-            profile_1.elapsed().as_nanos(),
-            profile_2.elapsed().as_nanos(),
-            profile_3.elapsed().as_nanos(),
-            profile_4.elapsed().as_nanos(),
-        );
-        *self.plugin_state.profiler.lock().unwrap() = profile;
+                // Calculate new magnitudes
+                let profile_2 = std::time::Instant::now();
+                let len = self.local_state.complex_fft_buffer.len();
+                let norms: Value = self.local_state.complex_fft_buffer
+                    .iter()
+                    .map(|c| c.norm())
+                    .collect::<Vec<_>>()
+                    .into();
+                let result = code_value.apply(norms).collect(0..len);
 
+                // Apply new magnitudes
+                let profile_3 = std::time::Instant::now();
+                for (i, val) in result.enumerate() {
+                    let norm = match val {
+                        Value::Float(f) => f,
+                        _ => 0.0,
+                    };
+                    let old_norm = self.local_state.complex_fft_buffer[i].norm();
+                    if old_norm == 0.0 {
+                        self.local_state.complex_fft_buffer[i] = Complex32::new(norm, 0.0);
+                    } else {
+                        self.local_state.complex_fft_buffer[i] *= norm / old_norm;
+                    }
+                }
+
+                // Inverse FFT back into the scratch buffer. This will be added to a ring buffer
+                // which gets written back to the host at a one block delay.
+                let profile_4 = std::time::Instant::now();
+                self.local_state.c2r_plan
+                    .process_with_scratch(&mut self.local_state.complex_fft_buffer, real_fft_buffer, &mut [])
+                    .unwrap();
+
+                // Store profiling result
+                let profile = format!(
+                    "Profile: {} ns, {} ns, {} ns, {} ns",
+                    profile_1.elapsed().as_nanos(),
+                    profile_2.elapsed().as_nanos(),
+                    profile_3.elapsed().as_nanos(),
+                    profile_4.elapsed().as_nanos(),
+                );
+                *self.plugin_state.profiler.lock().unwrap() = profile;
+
+                // Store debug result
+                *self.plugin_state.debug.lock().unwrap() = format!("complex_len = {}", len);
+            });
         ProcessStatus::Normal
     }
 }
