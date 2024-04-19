@@ -19,7 +19,7 @@ pub mod tests_expr {
 
     #[test]
     fn test_minimal() {
-        let code = "80";
+        let code = "80.0";
         match parse(code) {
             Ok(result) => assert_eq!(result, Syntax::Float(80.0)),
             Err(err) => panic!("failed to parse {}: {}", code, err),
@@ -28,7 +28,7 @@ pub mod tests_expr {
 
     #[test]
     fn test_numeric() {
-        let code = "1.4*(2+3)";
+        let code = "1.4*(2.0+3.0)";
         match parse(code) {
             Ok(result) => assert_eq!(result, Syntax::Apply(
                 Syntax::Apply(
@@ -103,7 +103,7 @@ pub mod tests_expr {
             Ok(result) => assert_eq!(result, Syntax::Let(
                 Box::new(ValueType::Float),
                 "x".to_string(),
-                Box::new(Syntax::Float(80.0)),
+                Box::new(Syntax::Int(80)),
                 Box::new(Syntax::Var("x".to_string())),
             )),
             Err(err) => panic!("failed to parse {}: {}", code, err),
