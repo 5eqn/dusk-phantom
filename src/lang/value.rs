@@ -25,7 +25,6 @@ impl Display for Closure {
 #[derive(Clone)]
 pub enum Value {
     Float(f32),
-    Int(i32),
     Bool(bool),
     Extern(Arc<V2V>),
     Apply(Box<Value>, Vec<Value>),
@@ -46,17 +45,18 @@ impl Value {
     }
 
     pub fn collect(self, range: impl Iterator<Item = usize>) -> impl Iterator<Item = Value> {
-        range.map(move |i| self.clone().apply(Value::Int(i as i32)))
+        range.map(move |i| self.clone().apply(Value::Float(i as f32)))
     }
 }
 
 impl From<Vec<f32>> for Value {
     fn from(values: Vec<f32>) -> Self {
-        let indexer: Arc<I2F> = Arc::new(move |i| {
-            if i < 0 || i as usize >= values.len() {
+        let indexer: Arc<F2F> = Arc::new(move |i| {
+            let i: usize = i as usize;
+            if i >= values.len() {
                 0.0
             } else {
-                values[i as usize]
+                values[i]
             }
         });
         indexer.into()
@@ -64,7 +64,6 @@ impl From<Vec<f32>> for Value {
 }
 
 pub type V2V = dyn Fn(Value) -> Value + Send + Sync;
-pub type I2F = dyn Fn(i32) -> f32 + Send + Sync;
 pub type F2F = dyn Fn(f32) -> f32 + Send + Sync;
 pub type F2B = dyn Fn(f32) -> bool + Send + Sync;
 pub type FF2F = dyn Fn(f32, f32) -> f32 + Send + Sync;
@@ -75,15 +74,6 @@ impl From<Arc<F2F>> for Value {
         Value::Extern(Arc::new(move |arg| match arg {
             Value::Float(x) => Value::Float(f(x)),
             _ => panic!("Expected float"),
-        }))
-    }
-}
-
-impl From<Arc<I2F>> for Value {
-    fn from(f: Arc<I2F>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Int(x) => Value::Float(f(x)),
-            _ => panic!("Expected int"),
         }))
     }
 }
@@ -127,7 +117,6 @@ impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Value::Float(x), Value::Float(y)) => x == y,
-            (Value::Int(x), Value::Int(y)) => x == y,
             (Value::Bool(x), Value::Bool(y)) => x == y,
             (Value::Apply(f1, a1), Value::Apply(f2, a2)) => f1 == f2 && a1 == a2,
             (Value::Func(p1, c1), Value::Func(p2, c2)) => p1 == p2 && c1 == c2,
@@ -140,7 +129,6 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
-            Value::Int(x) => write!(f, "Value::Int({})", x),
             Value::Bool(x) => write!(f, "Value::Bool({})", x),
             Value::Extern(_) => write!(f, "Value::Extern(_)"),
             Value::Apply(func, args) => write!(
@@ -161,7 +149,6 @@ impl Value {
     pub fn pretty_term(&self) -> String {
         match self {
             Value::Float(x) => format!("{:.3}", x),
-            Value::Int(x) => x.to_string(),
             Value::Bool(x) => x.to_string(),
             Value::Extern(_) => "_".into(),
             Value::Apply(func, args) => format!(

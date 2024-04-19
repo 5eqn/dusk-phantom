@@ -13,7 +13,9 @@ For more info, check `Makefile`.
 ## Syntax
 
 ```dp
-(f: Int -> Float) => (i: Int) => f(i)
+let lp: Float -> Float = (i: Float) => if i < 8 then 1 else 0 in
+
+(f: Float -> Float) => (i: Float) => lp(i) * f(i) / 96
 ```
 
 ```dp

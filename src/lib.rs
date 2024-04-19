@@ -194,16 +194,16 @@ impl Plugin for DuskPhantom {
 
                 // Apply new magnitudes
                 let profile_3 = std::time::Instant::now();
-                for (i, val) in result.enumerate() {
+                for (val, complex) in result.zip(&mut self.local_state.complex_fft_buffer) {
                     let norm = match val {
                         Value::Float(f) => f,
                         _ => 0.0,
                     };
-                    let old_norm = self.local_state.complex_fft_buffer[i].norm();
+                    let old_norm = complex.norm();
                     if old_norm == 0.0 {
-                        self.local_state.complex_fft_buffer[i] = Complex32::new(norm, 0.0);
+                        *complex = Complex32::new(norm, 0.0) * GAIN_COMPENSATION;
                     } else {
-                        self.local_state.complex_fft_buffer[i] *= norm / old_norm;
+                        *complex *= norm / old_norm * GAIN_COMPENSATION;
                     }
                 }
 

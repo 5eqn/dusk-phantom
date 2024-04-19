@@ -5,7 +5,6 @@ use super::*;
 #[derive(Clone, PartialEq, Debug)]
 pub enum Term {
     Float(f32),
-    Int(i32),
     Bool(bool),
     Var(String),
     Extern(Extern),
@@ -19,7 +18,6 @@ impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Term::Float(value) => write!(f, "Term::Float({:.3})", value),
-            Term::Int(value) => write!(f, "Term::Int({})", value),
             Term::Bool(value) => write!(f, "Term::Bool({})", value),
             Term::Var(name) => write!(f, "Term::Var({}.into())", name),
             Term::Extern(lib) => write!(f, "Term::Extern({:?})", lib),
@@ -35,7 +33,6 @@ impl Term {
     pub fn pretty_term(&self) -> String {
         match self {
             Term::Float(x) => format!("{:.3}", x),
-            Term::Int(x) => x.to_string(),
             Term::Bool(x) => x.to_string(),
             Term::Var(x) => x.to_string(),
             Term::Extern(x) => x.to_string(),
