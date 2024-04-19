@@ -66,11 +66,12 @@ pub(crate) fn create(
                 .font_size(30.0)
                 .height(Pixels(50.0))
                 .child_top(Stretch(1.0))
-                .child_bottom(Pixels(0.0));
-            Label::new(cx, "DuskPhantom").bottom(Stretch(1.0));
+                .child_bottom(Stretch(1.0));
+            Label::new(cx, "Code Your EQ Here").bottom(Pixels(10.0));
 
             // Code area
             Textbox::new_multiline(cx, Data::params.map(|p| p.code.lock().unwrap().to_string()), true)
+                .font_family(vec![FamilyOwned::Monospace])
                 .width(Percentage(80.0))
                 .height(Pixels(360.0))
                 .bottom(Stretch(1.0))
