@@ -44,6 +44,10 @@ impl Value {
             other => Value::Apply(other.into(), vec![arg]),
         }
     }
+
+    pub fn make_arr(self, range: impl Iterator<Item = usize>) -> impl Iterator<Item = Value> {
+        range.map(move |i| self.clone().apply(Value::Int(i as i32)))
+    }
 }
 
 pub type V2V = dyn Fn(Value) -> Value + Send + Sync;

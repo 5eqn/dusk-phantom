@@ -3,7 +3,7 @@ use constant::{DEFAULT_CODE, PEAK_METER_DECAY_MS};
 use lang::*;
 use nih_plug::prelude::*;
 use nih_plug_vizia::ViziaState;
-use std::sync::{Arc, Mutex};
+use std::{iter::zip, sync::{Arc, Mutex}};
 
 mod constant;
 mod editor;
@@ -159,17 +159,16 @@ impl Plugin for DuskPhantom {
 
         // Iterate all samples
         let profile_4 = std::time::Instant::now();
-        for (i, channel_samples) in buffer.iter_samples().enumerate() {
-            // Calculate gain
-            let Value::Float(gain) = product_array.clone().apply(Value::Int(i as i32)) else {
-                panic!("Expected float");
-            };
-
+        let gains: Vec<_> = product_array.clone().make_arr(0..=1).map(|v| match v {
+            Value::Float(f) => f,
+            _ => 0.0,
+        }).collect();
+        for channel_samples in buffer.iter_samples() {
             // Apply gain
             let mut amplitude = 0.0;
             let num_samples = channel_samples.len();
-            for sample in channel_samples {
-                *sample *= gain;
+            for (sample, gain) in zip(channel_samples, gains.iter()) {
+                *sample *= *gain;
                 amplitude += *sample;
             }
 
