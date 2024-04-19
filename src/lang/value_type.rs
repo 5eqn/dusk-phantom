@@ -20,8 +20,8 @@ impl fmt::Display for ValueType {
 impl ValueType {
     pub fn pretty_term(&self) -> String {
         match self {
-            ValueType::Float => "float".into(),
-            ValueType::Bool => "bool".into(),
+            ValueType::Float => "Float".into(),
+            ValueType::Bool => "Bool".into(),
             ValueType::Func(param, ret) => format!("{} -> {}", param.pretty_atom(), ret.pretty_term()),
         }
     }

@@ -49,7 +49,7 @@ pub mod tests_expr {
 
     #[test]
     fn test_func() {
-        let code = "(x: float) => x";
+        let code = "(x: Float) => x";
         match parse(code) {
             Ok(result) => assert_eq!(result, Syntax::Func(
                 Box::new(ValueType::Float),
@@ -62,7 +62,7 @@ pub mod tests_expr {
 
     #[test]
     fn test_id() {
-        let code = "((x: float) => x)(1.4)";
+        let code = "((x: Float) => x)(1.4)";
         match parse(code) {
             Ok(result) => assert_eq!(result, Syntax::Apply(
                 Box::new(Syntax::Func(
@@ -78,7 +78,7 @@ pub mod tests_expr {
 
     #[test]
     fn test_apply() {
-        let code = "(f: float -> float) => (x: float) => f(x)";
+        let code = "(f: Float -> Float) => (x: Float) => f(x)";
         match parse(code) {
             Ok(result) => assert_eq!(result, Syntax::Func(
                 Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float))),
@@ -98,7 +98,7 @@ pub mod tests_expr {
 
     #[test]
     fn test_let() {
-        let code = "let x: float = 80 in x";
+        let code = "let x: Float = 80 in x";
         match parse(code) {
             Ok(result) => assert_eq!(result, Syntax::Let(
                 Box::new(ValueType::Float),
