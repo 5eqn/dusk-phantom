@@ -5,10 +5,10 @@ use std::{fmt::Display, sync::Arc};
 pub struct Closure(pub Box<Term>, pub Env, pub String);
 
 impl Closure {
-    pub fn apply(&self, arg: Value) -> Result<Value, String> {
-        let mut env = self.1.clone();
-        env.insert(self.2.clone(), arg);
-        eval(*self.0.clone(), &env)
+    pub fn apply(self, arg: Value) -> Value {
+        let mut env = self.1;
+        env.insert(self.2, arg);
+        eval(*self.0, &env)
     }
 }
 
@@ -32,7 +32,22 @@ pub enum Value {
     Func(Box<ValueType>, Closure),
 }
 
+impl Value {
+    pub fn apply(self, arg: Value) -> Value {
+        match self {
+            Value::Func(_, closure) => closure.apply(arg),
+            Value::Extern(f) => f(arg),
+            Value::Apply(func, mut args) => {
+                args.push(arg);
+                Value::Apply(func, args)
+            }
+            other => Value::Apply(other.into(), vec![arg]),
+        }
+    }
+}
+
 pub type V2V = dyn Fn(Value) -> Value + Send + Sync;
+pub type I2F = dyn Fn(i32) -> f32 + Send + Sync;
 pub type F2F = dyn Fn(f32) -> f32 + Send + Sync;
 pub type F2B = dyn Fn(f32) -> bool + Send + Sync;
 pub type FF2F = dyn Fn(f32, f32) -> f32 + Send + Sync;
@@ -43,6 +58,15 @@ impl From<Arc<F2F>> for Value {
         Value::Extern(Arc::new(move |arg| match arg {
             Value::Float(x) => Value::Float(f(x)),
             _ => panic!("Expected float"),
+        }))
+    }
+}
+
+impl From<Arc<I2F>> for Value {
+    fn from(f: Arc<I2F>) -> Self {
+        Value::Extern(Arc::new(move |arg| match arg {
+            Value::Int(x) => Value::Float(f(x)),
+            _ => panic!("Expected int"),
         }))
     }
 }
