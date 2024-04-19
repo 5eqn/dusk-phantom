@@ -37,8 +37,8 @@ pub type F2B = dyn Fn(f32) -> bool + Send + Sync;
 pub type FF2F = dyn Fn(f32, f32) -> f32 + Send + Sync;
 pub type FF2B = dyn Fn(f32, f32) -> bool + Send + Sync;
 
-impl From<Box<F2F>> for Value {
-    fn from(f: Box<F2F>) -> Self {
+impl From<Arc<F2F>> for Value {
+    fn from(f: Arc<F2F>) -> Self {
         Value::Extern(Arc::new(move |arg| match arg {
             Value::Float(x) => Value::Float(f(x)),
             _ => panic!("Expected float"),
@@ -46,8 +46,8 @@ impl From<Box<F2F>> for Value {
     }
 }
 
-impl From<Box<F2B>> for Value {
-    fn from(f: Box<F2B>) -> Self {
+impl From<Arc<F2B>> for Value {
+    fn from(f: Arc<F2B>) -> Self {
         Value::Extern(Arc::new(move |arg| match arg {
             Value::Float(x) => Value::Bool(f(x)),
             _ => panic!("Expected float"),
@@ -55,24 +55,26 @@ impl From<Box<F2B>> for Value {
     }
 }
 
-impl From<Box<FF2F>> for Value {
-    fn from(f: Box<FF2F>) -> Self {
+impl From<Arc<FF2F>> for Value {
+    fn from(f: Arc<FF2F>) -> Self {
         Value::Extern(Arc::new(move |arg| match arg {
             Value::Float(x) => {
-                let f: Box<F2F> = Box::new(move |y| f(x, y));
-                f.into()
+                let f: Arc<FF2F> = f.clone();
+                let res: Arc<F2F> = Arc::new(move |y| f(x, y));
+                res.into()
             }
             _ => panic!("Expected float"),
         }))
     }
 }
 
-impl From<Box<FF2B>> for Value {
-    fn from(f: Box<FF2B>) -> Self {
+impl From<Arc<FF2B>> for Value {
+    fn from(f: Arc<FF2B>) -> Self {
         Value::Extern(Arc::new(move |arg| match arg {
             Value::Float(x) => {
-                let f: Box<F2B> = Box::new(|y| f(x, y));
-                f.into()
+                let f: Arc<FF2B> = f.clone();
+                let res: Arc<F2B> = Arc::new(move |y| f(x, y));
+                res.into()
             }
             _ => panic!("Expected float"),
         }))
@@ -96,7 +98,7 @@ impl Display for Value {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
             Value::Bool(x) => write!(f, "Value::Bool({})", x),
-            Value::Extern(_) => write!(f, "Value::Lib(_)"),
+            Value::Extern(_) => write!(f, "Value::Extern(_)"),
             Value::Apply(func, args) => write!(
                 f,
                 "Value::Apply({}.into(), vec![{}])",
