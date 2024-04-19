@@ -135,6 +135,10 @@ impl Plugin for DuskPhantom {
         // Calculate gain
         let gain: f32 = match self.plugin_state.code_value.lock().unwrap().clone() {
             Value::Float(x) => x,
+            Value::Func(_, closure) => match closure.apply(Value::Float(1.0)) {
+                Ok(Value::Float(x)) => x,
+                _ => 1.0,
+            }
             _ => 1.0,
         };
 
