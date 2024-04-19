@@ -103,7 +103,7 @@ pub mod tests_expr {
             Ok(result) => assert_eq!(result, Syntax::Let(
                 Box::new(ValueType::Float),
                 "x".to_string(),
-                Box::new(Syntax::Int(80)),
+                Box::new(Syntax::Float(80.0)),
                 Box::new(Syntax::Var("x".to_string())),
             )),
             Err(err) => panic!("failed to parse {}: {}", code, err),

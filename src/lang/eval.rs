@@ -7,7 +7,6 @@ pub type Env = HashMap<String, Value>;
 pub fn eval(term: Term, env: &Env) -> Value {
     match term {
         Term::Float(x) => Value::Float(x),
-        Term::Int(x) => Value::Int(x),
         Term::Bool(x) => Value::Bool(x),
         Term::Var(v) => env
             .get(&v)

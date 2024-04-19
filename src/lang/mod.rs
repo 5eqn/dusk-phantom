@@ -23,11 +23,11 @@ pub type RunError = String;
 fn target_type() -> ValueType {
     ValueType::Func(
         Box::new(ValueType::Func(
-            Box::new(ValueType::Int),
+            Box::new(ValueType::Float),
             Box::new(ValueType::Float),
         )),
         Box::new(ValueType::Func(
-            Box::new(ValueType::Int),
+            Box::new(ValueType::Float),
             Box::new(ValueType::Float),
         )),
     )

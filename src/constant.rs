@@ -13,3 +13,6 @@ pub const FILTER_WINDOW_SIZE: usize = 33;
 /// The length of the FFT window we will use to perform FFT convolution. This includes padding to
 /// prevent time domain aliasing as a result of cyclic convolution.
 pub const FFT_WINDOW_SIZE: usize = WINDOW_SIZE + FILTER_WINDOW_SIZE - 1;
+
+/// The gain compensation we need to apply for the STFT process.
+pub const GAIN_COMPENSATION: f32 = 1.0 / FFT_WINDOW_SIZE as f32;

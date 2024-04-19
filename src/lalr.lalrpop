@@ -56,7 +56,6 @@ Apply: Syntax = {
 
 Atom: Syntax = {
     <n: Float> => Syntax::Float(n),
-    <n: Int> => Syntax::Int(n),
     <n: Bool> => Syntax::Bool(n),
     <i: Ident> => Syntax::Var(i),
     "(" <t: Syntax> ")" => t,
@@ -74,21 +73,19 @@ TFunc: ValueType = {
 TAtom: ValueType = {
     "Float" => ValueType::Float,
     "Bool" => ValueType::Bool,
-    "Int" => ValueType::Int,
     "(" <t: ValueType> ")" => t,
 }
 
 // Literals
 
-Ident: String = <s:r"[_a-zA-Z][_a-zA-Z0-9]*"> => s.to_string();
+Ident: String = <s: r"[_a-zA-Z][_a-zA-Z0-9]*"> => s.to_string();
 
 Float: f32 = {
+    <s: r"0|[1-9][0-9]*"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]*\.[0-9]+([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+\.([eE][+-]?[0-9]+)?"> => s.parse::<f32>().unwrap(),
     <s: r"[0-9]+[eE][+-]?[0-9]+"> => s.parse::<f32>().unwrap(),
 }
-
-Int: i32 = <s: r"0|[1-9][0-9]*"> => s.parse::<i32>().unwrap();
 
 Bool: bool = {
     "true" => true,
