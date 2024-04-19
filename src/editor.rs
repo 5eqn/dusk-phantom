@@ -1,13 +1,11 @@
 use crate::PluginState;
 use crate::lang::*;
 use crate::assets::*;
-use nih_plug::prelude::{util, Editor};
+use nih_plug::prelude::Editor;
 use nih_plug_vizia::vizia::prelude::*;
 use nih_plug_vizia::widgets::*;
 use nih_plug_vizia::{assets, create_vizia_editor, ViziaState, ViziaTheming};
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::PluginParams;
 
@@ -96,14 +94,12 @@ pub(crate) fn create(
             .width(Percentage(75.0))
             .bottom(Stretch(1.0));
 
-            // Peak meter
-            PeakMeter::new(
+            // Debug message
+            Label::new(
                 cx,
-                Data::plugin_state
-                    .map(|st| util::gain_to_db(st.peak_meter.load(Ordering::Relaxed))),
-                Some(Duration::from_millis(600)),
+                Data::plugin_state.map(|st| st.debug.lock().unwrap().to_string()),
             )
-            .top(Pixels(10.0))
+            .width(Percentage(75.0))
             .bottom(Stretch(1.0));
         })
         .row_between(Pixels(0.0))
