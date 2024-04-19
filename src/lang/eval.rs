@@ -14,6 +14,10 @@ pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
             .map_or(Err(format!("{} is not in env", v)), |v| Ok(v.clone())),
         Term::Apply(func, arg) => match eval(*func, env)? {
             Value::Float(x) => Err(format!("{} is not a function", x)),
+            Value::Func(_, closure) => {
+                let arg = eval(*arg, env)?;
+                closure.apply(arg)
+            }
             Value::Apply(func, mut args) => match (*func, &args[0], eval(*arg, env)?) {
                 (Value::Lib(Lib::Add), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x + y)),
                 (Value::Lib(Lib::Sub), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x - y)),
@@ -27,6 +31,10 @@ pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
             other => Ok(Value::Apply(other.into(), vec![eval(*arg, env)?])),
         },
         Term::Lib(x) => Ok(Value::Lib(x)),
+        Term::Func(return_type, name, body) => Ok(Value::Func(
+            return_type,
+            Closure(body, env.clone(), name),
+        )),
     }
 }
 
@@ -46,7 +54,7 @@ pub mod tests_eval {
     }
 
     #[test]
-    fn test_complex() {
+    fn test_numeric() {
         let code = Term::Apply(
             Term::Apply(
                 Box::new(Term::Lib(Lib::Mul)),
@@ -63,6 +71,23 @@ pub mod tests_eval {
         let env = Env::new();
         match eval(code.clone(), &env) {
             Ok(result) => assert_eq!(result, Value::Float(7.0)),
+            Err(err) => panic!("failed to eval {:?}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_id() {
+        let code = Term::Apply(
+            Box::new(Term::Func(
+                Box::new(ValueType::Float),
+                "x".to_string(),
+                Box::new(Term::Var("x".to_string())),
+            )),
+            Box::new(Term::Float(1.4)),
+        );
+        let env = Env::new();
+        match eval(code.clone(), &env) {
+            Ok(result) => assert_eq!(result, Value::Float(1.4)),
             Err(err) => panic!("failed to eval {:?}: {}", code, err),
         }
     }
