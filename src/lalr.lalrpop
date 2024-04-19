@@ -54,7 +54,7 @@ Float: f32 = {
 ValueType: ValueType = <a: TFunc> => a;
 
 TFunc: ValueType = {
-    <f: TFunc> "->" <t: TAtom> => ValueType::Func(f.into(), t.into()),
+    <f: TAtom> "->" <t: TFunc> => ValueType::Func(f.into(), t.into()),
     <a: TAtom> => a,
 }
 

@@ -28,7 +28,7 @@ impl Model for Data {
             AppEvent::SetCode(code) => {
                 *self.params.code.lock().unwrap() = code.clone();
                 let (msg, code) = match run(code) {
-                    Ok(val) => (format!("Compilation success: {}", val), val),
+                    Ok(val) => (format!("Compilation success: {}", val.pretty_term()), val),
                     Err(err) => (err, Value::Float(1.0)),
                 };
                 *self.plugin_state.message.lock().unwrap() = msg;
