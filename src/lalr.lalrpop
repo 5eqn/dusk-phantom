@@ -79,7 +79,8 @@ TFunc: ValueType = {
 }
 
 TAtom: ValueType = {
-    "float" => ValueType::Float,
+    "Float" => ValueType::Float,
+    "Bloat" => ValueType::Bool,
     "(" <t: ValueType> ")" => t,
 }
 

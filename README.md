@@ -14,12 +14,12 @@ For more info, check `Makefile`.
 
 ```dp
 // Pitch shift
-(f: [i: freq] -> complex) => [i: freq] => f[i * 2]
+(f: Freq -> Comp) => (i: Freq) => f(i * 2)
 
 // LP Filter
-let lp: (i: freq) -> float = (i: freq) => if i < 1600 Hz then 1 else 0
-(f: [i: freq] -> complex) => [i: freq] => f[i] * lp(i)
+let lp: (i: Freq) -> Float = (i: Freq) => if i < 1600 Hz then 1 else 0
+(f: Freq -> Comp) => (i: Freq) => f(i) * lp(i)
 
 // Spacer
-(f: [i: freq] -> complex) => [i: freq] => rt(f[i].r, f[i].t * 2)
+(f: Freq -> Comp) => (i: Freq) => let c = f(i) in comp(c.r, c.t * 2)
 ```
