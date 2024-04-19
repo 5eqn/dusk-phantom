@@ -27,7 +27,7 @@ pub mod tests_expr {
     }
 
     #[test]
-    fn test_complex() {
+    fn test_numeric() {
         let code = "1.4*(2+3)";
         match parse(code) {
             Ok(result) => assert_eq!(result, Syntax::Apply(
@@ -42,6 +42,55 @@ pub mod tests_expr {
                     ).into(),
                     Syntax::Float(3.0).into(),
                 ).into(),
+            )),
+            Err(err) => panic!("failed to parse {}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_func() {
+        let code = "(x: float) => x";
+        match parse(code) {
+            Ok(result) => assert_eq!(result, Syntax::Func(
+                Box::new(ValueType::Float),
+                "x".to_string(),
+                Box::new(Syntax::Var("x".to_string())),
+            )),
+            Err(err) => panic!("failed to parse {}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_id() {
+        let code = "((x: float) => x)(1.4)";
+        match parse(code) {
+            Ok(result) => assert_eq!(result, Syntax::Apply(
+                Box::new(Syntax::Func(
+                    Box::new(ValueType::Float),
+                    "x".to_string(),
+                    Box::new(Syntax::Var("x".to_string())),
+                )),
+                Box::new(Syntax::Float(1.4)),
+            )),
+            Err(err) => panic!("failed to parse {}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_apply() {
+        let code = "(f: float -> float) => (x: float) => f(x)";
+        match parse(code) {
+            Ok(result) => assert_eq!(result, Syntax::Func(
+                Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float))),
+                "f".to_string(),
+                Box::new(Syntax::Func(
+                    Box::new(ValueType::Float),
+                    "x".to_string(),
+                    Box::new(Syntax::Apply(
+                        Box::new(Syntax::Var("f".to_string())),
+                        Box::new(Syntax::Var("x".to_string())),
+                    )),
+                )),
             )),
             Err(err) => panic!("failed to parse {}: {}", code, err),
         }
