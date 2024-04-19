@@ -1,7 +1,7 @@
 use super::*;
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Closure(pub Box<Term>, pub Env, pub String);
 
 impl Closure {
@@ -22,13 +22,73 @@ impl Display for Closure {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub enum Value {
     Float(f32),
     Bool(bool),
-    Lib(Lib),
+    Extern(Arc<V2V>),
     Apply(Box<Value>, Vec<Value>),
     Func(Box<ValueType>, Closure),
+}
+
+pub type V2V = dyn Fn(Value) -> Value + Send + Sync;
+pub type F2F = dyn Fn(f32) -> f32 + Send + Sync;
+pub type F2B = dyn Fn(f32) -> bool + Send + Sync;
+pub type FF2F = dyn Fn(f32, f32) -> f32 + Send + Sync;
+pub type FF2B = dyn Fn(f32, f32) -> bool + Send + Sync;
+
+impl From<Box<F2F>> for Value {
+    fn from(f: Box<F2F>) -> Self {
+        Value::Extern(Arc::new(move |arg| match arg {
+            Value::Float(x) => Value::Float(f(x)),
+            _ => panic!("Expected float"),
+        }))
+    }
+}
+
+impl From<Box<F2B>> for Value {
+    fn from(f: Box<F2B>) -> Self {
+        Value::Extern(Arc::new(move |arg| match arg {
+            Value::Float(x) => Value::Bool(f(x)),
+            _ => panic!("Expected float"),
+        }))
+    }
+}
+
+impl From<Box<FF2F>> for Value {
+    fn from(f: Box<FF2F>) -> Self {
+        Value::Extern(Arc::new(move |arg| match arg {
+            Value::Float(x) => {
+                let f: Box<F2F> = Box::new(move |y| f(x, y));
+                f.into()
+            }
+            _ => panic!("Expected float"),
+        }))
+    }
+}
+
+impl From<Box<FF2B>> for Value {
+    fn from(f: Box<FF2B>) -> Self {
+        Value::Extern(Arc::new(move |arg| match arg {
+            Value::Float(x) => {
+                let f: Box<F2B> = Box::new(|y| f(x, y));
+                f.into()
+            }
+            _ => panic!("Expected float"),
+        }))
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Float(x), Value::Float(y)) => x == y,
+            (Value::Bool(x), Value::Bool(y)) => x == y,
+            (Value::Apply(f1, a1), Value::Apply(f2, a2)) => f1 == f2 && a1 == a2,
+            (Value::Func(p1, c1), Value::Func(p2, c2)) => p1 == p2 && c1 == c2,
+            _ => false,
+        }
+    }
 }
 
 impl Display for Value {
@@ -36,7 +96,7 @@ impl Display for Value {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
             Value::Bool(x) => write!(f, "Value::Bool({})", x),
-            Value::Lib(x) => write!(f, "Value::Lib({})", x),
+            Value::Extern(_) => write!(f, "Value::Lib(_)"),
             Value::Apply(func, args) => write!(
                 f,
                 "Value::Apply({}.into(), vec![{}])",
@@ -56,7 +116,7 @@ impl Value {
         match self {
             Value::Float(x) => format!("{:.3}", x),
             Value::Bool(x) => x.to_string(),
-            Value::Lib(x) => x.to_string(),
+            Value::Extern(_) => "_".into(),
             Value::Apply(func, args) => format!(
                 "{}({})",
                 func.pretty_atom(),

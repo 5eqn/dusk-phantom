@@ -19,23 +19,13 @@ pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
                 let arg = eval(*arg, env)?;
                 closure.apply(arg)
             }
-            Value::Apply(func, mut args) => match (*func, &args[0], eval(*arg, env)?) {
-                (Value::Lib(Lib::Add), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x + y)),
-                (Value::Lib(Lib::Sub), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x - y)),
-                (Value::Lib(Lib::Mul), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x * y)),
-                (Value::Lib(Lib::Div), Value::Float(x), Value::Float(y)) => Ok(Value::Float(x / y)),
-                (Value::Lib(Lib::Lt), Value::Float(x), Value::Float(y)) => Ok(Value::Bool(*x < y)),
-                (Value::Lib(Lib::Le), Value::Float(x), Value::Float(y)) => Ok(Value::Bool(*x <= y)),
-                (Value::Lib(Lib::Gt), Value::Float(x), Value::Float(y)) => Ok(Value::Bool(*x > y)),
-                (Value::Lib(Lib::Ge), Value::Float(x), Value::Float(y)) => Ok(Value::Bool(*x >= y)),
-                (func, _, arg) => {
-                    args.push(arg);
-                    Ok(Value::Apply(func.into(), args))
-                }
+            Value::Apply(func, mut args) => {
+                args.push(eval(*arg, env)?);
+                Ok(Value::Apply(func, args))
             },
             other => Ok(Value::Apply(other.into(), vec![eval(*arg, env)?])),
         },
-        Term::Lib(x) => Ok(Value::Lib(x)),
+        Term::Lib(x) => Ok(x.into()),
         Term::Func(return_type, name, body) => Ok(Value::Func(
             return_type,
             Closure(body, env.clone(), name),

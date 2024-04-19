@@ -2,7 +2,7 @@ use std::fmt;
 
 use super::*;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Term {
     Float(f32),
     Bool(bool),
