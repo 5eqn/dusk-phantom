@@ -7,16 +7,16 @@ pub struct Closure(pub Box<Term>, pub Env, pub String);
 impl Closure {
     pub fn apply(self, arg: Value) -> Value {
         let mut env = self.1;
-        env.insert(self.2, arg);
+        env.push(arg);
         eval(*self.0, &env)
     }
 }
 
 impl Display for Closure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Closure({}.into(), HashMap::from([{}]), {}.into())", 
+        write!(f, "Closure({}.into(), vec![{}], {}.into())", 
             self.0, 
-            self.1.iter().map(|(k, v)| format!("({}.into(), {})", k, v)).collect::<Vec<_>>().join(", "),
+            self.1.iter().map(|v| format!("{}.into()", v)).collect::<Vec<_>>().join(", "),
             self.2
         )
     }

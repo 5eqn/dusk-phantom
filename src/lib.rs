@@ -185,12 +185,13 @@ impl Plugin for DuskPhantom {
                 // Calculate new magnitudes
                 let profile_2 = std::time::Instant::now();
                 let len = self.local_state.complex_fft_buffer.len();
-                let norms: Value = self.local_state.complex_fft_buffer
+                let norms: Vec<_> = self
+                    .local_state
+                    .complex_fft_buffer
                     .iter()
                     .map(|c| c.norm())
-                    .collect::<Vec<_>>()
-                    .into();
-                let result = code_value.apply(norms).collect(0..len);
+                    .collect();
+                let result = code_value.apply(norms.into()).collect(0..len);
 
                 // Apply new magnitudes
                 let profile_3 = std::time::Instant::now();

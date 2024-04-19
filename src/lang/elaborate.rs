@@ -2,22 +2,25 @@ use super::*;
 
 pub type ElaborateError = String;
 
-pub type Ctx = HashMap<String, ValueType>;
+pub type Level = i32;
+pub type Index = i32;
 
-pub fn infer(syntax: Syntax, ctx: Ctx) -> Result<(Term, ValueType), ElaborateError> {
+pub type Ctx = HashMap<String, (Level, ValueType)>;
+
+pub fn infer(syntax: Syntax, ctx: Ctx, env_len: Level) -> Result<(Term, ValueType), ElaborateError> {
     match syntax {
         Syntax::Float(value) => Ok((Term::Float(value), ValueType::Float)),
         Syntax::Bool(value) => Ok((Term::Bool(value), ValueType::Bool)),
         Syntax::Var(name) => match ctx.get(&name) {
-            Some(value_type) => Ok((Term::Var(name), value_type.clone())),
+            Some((level, value_type)) => Ok((Term::Var(env_len - level - 1), value_type.clone())),
             None => Err(format!("Variable not found: {}", name)),
         },
         Syntax::Extern(lib) => Ok((Term::Extern(lib.clone()), lib.into())),
         Syntax::Apply(func, arg) => {
-            let (func_term, func_type) = infer(*func, ctx.clone())?;
+            let (func_term, func_type) = infer(*func, ctx.clone(), env_len)?;
             match func_type {
                 ValueType::Func(param_type, ret_type) => {
-                    let arg_term = check(*arg, ctx.clone(), *param_type)?;
+                    let arg_term = check(*arg, ctx.clone(), *param_type, env_len)?;
                     Ok((Term::Apply(Box::new(func_term), Box::new(arg_term)), *ret_type))
                 }
                 _ => Err(format!("Not a function: {}", func_type)),
@@ -26,34 +29,34 @@ pub fn infer(syntax: Syntax, ctx: Ctx) -> Result<(Term, ValueType), ElaborateErr
         Syntax::Func(param_type, name, body) => {
             let new_ctx = {
                 let mut new_ctx = ctx.clone();
-                new_ctx.insert(name.clone(), *param_type.clone());
+                new_ctx.insert(name.clone(), (env_len, *param_type.clone()));
                 new_ctx
             };
-            let (body_term, body_type) = infer(*body, new_ctx)?;
+            let (body_term, body_type) = infer(*body, new_ctx, env_len + 1)?;
             Ok((Term::Func(param_type.clone(), name, Box::new(body_term)), ValueType::Func(param_type, Box::new(body_type))))
         }
         Syntax::Let(value_type, name, body, next) => {
-            let body_term = check(*body, ctx.clone(), *value_type.clone())?;
+            let body_term = check(*body, ctx.clone(), *value_type.clone(), env_len)?;
             let new_ctx = {
                 let mut new_ctx = ctx.clone();
-                new_ctx.insert(name.clone(), *value_type.clone());
+                new_ctx.insert(name.clone(), (env_len, *value_type.clone()));
                 new_ctx
             };
-            let (next_term, next_type) = infer(*next, new_ctx)?;
+            let (next_term, next_type) = infer(*next, new_ctx, env_len + 1)?;
             Ok((Term::Let(value_type, name, Box::new(body_term), Box::new(next_term)), next_type))
         }
         Syntax::Alt(cond, then, else_) => {
-            let cond_term = check(*cond, ctx.clone(), ValueType::Bool)?;
-            let (then_term, then_type) = infer(*then, ctx.clone())?;
-            let (else_term, else_type) = infer(*else_, ctx.clone())?;
+            let cond_term = check(*cond, ctx.clone(), ValueType::Bool, env_len)?;
+            let (then_term, then_type) = infer(*then, ctx.clone(), env_len)?;
+            let (else_term, else_type) = infer(*else_, ctx.clone(), env_len)?;
             let ty = unify(then_type, else_type)?;
             Ok((Term::Alt(Box::new(cond_term), Box::new(then_term), Box::new(else_term)), ty))
         }
     }
 }
 
-pub fn check(syntax: Syntax, ctx: Ctx, expected: ValueType) -> Result<Term, ElaborateError> {
-    let (term, inferred_type) = infer(syntax, ctx)?;
+pub fn check(syntax: Syntax, ctx: Ctx, expected: ValueType, env_len: Level) -> Result<Term, ElaborateError> {
+    let (term, inferred_type) = infer(syntax, ctx, env_len)?;
     if inferred_type == expected {
         return Ok(term);
     }
@@ -81,7 +84,7 @@ pub mod tests_elaborate {
     fn test_minimal() {
         let code = Syntax::Float(80.0);
         let ctx = Ctx::new();
-        match infer(code.clone(), ctx) {
+        match infer(code.clone(), ctx, 0) {
             Ok((term, value_type)) => {
                 assert_eq!(term, Term::Float(80.0));
                 assert_eq!(value_type, ValueType::Float);
@@ -98,12 +101,12 @@ pub mod tests_elaborate {
             Box::new(Syntax::Var("x".to_string())),
         );
         let ctx = Ctx::new();
-        match infer(code.clone(), ctx) {
+        match infer(code.clone(), ctx, 0) {
             Ok((term, value_type)) => {
                 assert_eq!(term, Term::Func(
                     Box::new(ValueType::Float),
                     "x".to_string(),
-                    Box::new(Term::Var("x".to_string())),
+                    Box::new(Term::Var(0)),
                 ));
                 assert_eq!(value_type, ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)));
             }
@@ -120,13 +123,13 @@ pub mod tests_elaborate {
             Box::new(Syntax::Var("x".to_string())),
         );
         let ctx = Ctx::new();
-        match infer(code.clone(), ctx) {
+        match infer(code.clone(), ctx, 0) {
             Ok((term, value_type)) => {
                 assert_eq!(term, Term::Let(
                     ValueType::Float.into(),
                     "x".to_string(),
                     Box::new(Term::Float(80.0)),
-                    Box::new(Term::Var("x".to_string())),
+                    Box::new(Term::Var(0)),
                 ));
                 assert_eq!(value_type, ValueType::Float);
             }
@@ -142,7 +145,7 @@ pub mod tests_elaborate {
             Box::new(Syntax::Float(90.0)),
         );
         let ctx = Ctx::new();
-        match infer(code.clone(), ctx) {
+        match infer(code.clone(), ctx, 0) {
             Ok((term, value_type)) => {
                 assert_eq!(term, Term::Alt(
                     Box::new(Term::Bool(true)),
