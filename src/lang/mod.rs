@@ -20,10 +20,23 @@ pub use value_type::*;
 
 pub type RunError = String;
 
+fn target_type() -> ValueType {
+    ValueType::Func(
+        Box::new(ValueType::Func(
+            Box::new(ValueType::Int),
+            Box::new(ValueType::Float),
+        )),
+        Box::new(ValueType::Func(
+            Box::new(ValueType::Int),
+            Box::new(ValueType::Float),
+        )),
+    )
+}
+
 pub fn run(code: &str) -> Result<Value, RunError> {
     let env = HashMap::new();
     let ctx = HashMap::new();
     let syntax = parse(code).map_err(|e| format!("Parse error: {}", e))?;
-    let (term, _) = infer(syntax, ctx).map_err(|e| format!("Elaborate error: {}", e))?;
-    eval(term, &env).map_err(|e| format!("Evaluation error: {}", e))
+    let term = check(syntax, ctx, target_type()).map_err(|e| format!("Elaborate error: {}", e))?;
+    Ok(eval(term, &env))
 }

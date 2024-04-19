@@ -28,9 +28,11 @@ impl Model for Data {
         event.map(|app_event, _| match app_event {
             AppEvent::SetCode(code) => {
                 *self.params.code.lock().unwrap() = code.clone();
-                let (msg, code) = match run(code) {
-                    Ok(val) => (format!("Compilation success: {}", val.pretty_term()), val),
-                    Err(err) => (err, Value::Float(1.0)),
+
+                // TODO remove duplicate code
+                let (msg, code) = match run(&self.params.code.lock().unwrap()) {
+                    Ok(val) => (format!("Compilation success: {}", val.pretty_term()), Some(val)),
+                    Err(err) => (err, None),
                 };
                 *self.plugin_state.message.lock().unwrap() = msg;
                 *self.plugin_state.code_value.lock().unwrap() = code;

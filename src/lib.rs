@@ -25,7 +25,7 @@ struct LocalState {
 struct PluginState {
     peak_meter: AtomicF32,
     message: Mutex<String>,
-    code_value: Mutex<Value>,
+    code_value: Mutex<Option<Value>>,
 }
 
 #[derive(Params)]
@@ -50,7 +50,7 @@ impl Default for DuskPhantom {
             plugin_state: PluginState {
                 peak_meter: AtomicF32::new(util::MINUS_INFINITY_DB),
                 message: Mutex::new("".into()),
-                code_value: Mutex::new(Value::Float(1.0)),
+                code_value: Mutex::new(None),
             }.into(),
         }
     }
@@ -117,8 +117,8 @@ impl Plugin for DuskPhantom {
 
         // Init code state
         let (msg, code) = match run(&self.params.code.lock().unwrap()) {
-            Ok(val) => (format!("Compilation success: {}", val.pretty_term()), val),
-            Err(err) => (err, Value::Float(1.0)),
+            Ok(val) => (format!("Compilation success: {}", val.pretty_term()), Some(val)),
+            Err(err) => (err, None),
         };
         *self.plugin_state.message.lock().unwrap() = msg;
         *self.plugin_state.code_value.lock().unwrap() = code;
@@ -133,24 +133,35 @@ impl Plugin for DuskPhantom {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // Calculate wave shaper
-        let ws = match self.plugin_state.code_value.lock().unwrap().clone() {
-            Value::Func(_, closure) => Some(closure),
-            _ => None,
+        // Bypass if there is no code
+        let Some(code_value) = self.plugin_state.code_value.lock().unwrap().clone() else {
+            return ProcessStatus::Normal;
         };
 
+        // Calculate array indexer
+        let arr = [1.0, -1.0];
+        let indexer: Arc<I2F> = Arc::new(move |x| {
+            let i = x as usize;
+            if i < arr.len() {
+                arr[i]
+            } else {
+                0.0
+            }
+        });
+        let product_array = code_value.apply(indexer.into());
+
         // Iterate all samples
-        for channel_samples in buffer.iter_samples() {
+        for (i, channel_samples) in buffer.iter_samples().enumerate() {
+            // Calculate gain
+            let Value::Float(gain) = product_array.clone().apply(Value::Int(i as i32)) else {
+                panic!("Expected float");
+            };
+
+            // Apply gain
             let mut amplitude = 0.0;
             let num_samples = channel_samples.len();
             for sample in channel_samples {
-                // Apply wave shaper
-                if let Some(ws) = &ws {
-                    let arg = Value::Float(*sample);
-                    if let Ok(Value::Float(result)) = ws.apply(arg) {
-                        *sample = result;
-                    }
-                }
+                *sample *= gain;
                 amplitude += *sample;
             }
 

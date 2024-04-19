@@ -4,47 +4,31 @@ use super::*;
 
 pub type Env = HashMap<String, Value>;
 
-pub type EvalError = String;
-
-pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
+pub fn eval(term: Term, env: &Env) -> Value {
     match term {
-        Term::Float(x) => Ok(Value::Float(x)),
-        Term::Int(x) => Ok(Value::Int(x)),
-        Term::Bool(x) => Ok(Value::Bool(x)),
+        Term::Float(x) => Value::Float(x),
+        Term::Int(x) => Value::Int(x),
+        Term::Bool(x) => Value::Bool(x),
         Term::Var(v) => env
             .get(&v)
-            .map_or(Err(format!("{} is not in env", v)), |v| Ok(v.clone())),
-        Term::Apply(func, arg) => match eval(*func, env)? {
-            Value::Float(x) => Err(format!("{} is not a function", x)),
-            Value::Func(_, closure) => {
-                let arg = eval(*arg, env)?;
-                closure.apply(arg)
-            }
-            Value::Extern(f) => {
-                let arg = eval(*arg, env)?;
-                Ok(f(arg))
-            }
-            Value::Apply(func, mut args) => {
-                args.push(eval(*arg, env)?);
-                Ok(Value::Apply(func, args))
-            },
-            other => Ok(Value::Apply(other.into(), vec![eval(*arg, env)?])),
-        },
-        Term::Extern(x) => Ok(x.into()),
-        Term::Func(return_type, name, body) => Ok(Value::Func(
+            .unwrap()
+            .clone(),
+        Term::Apply(func, arg) => eval(*func, env).apply(eval(*arg, env)),
+        Term::Extern(x) => x.into(),
+        Term::Func(return_type, name, body) => Value::Func(
             return_type,
             Closure(body, env.clone(), name),
-        )),
+        ),
         Term::Let(_, name, body, next) => {
-            let value = eval(*body, env)?;
+            let value = eval(*body, env);
             let mut env = env.clone();
             env.insert(name, value);
             eval(*next, &env)
         }
-        Term::Alt(cond, then, else_) => match eval(*cond, env)? {
+        Term::Alt(cond, then, else_) => match eval(*cond, env) {
             Value::Bool(true) => eval(*then, env),
             Value::Bool(false) => eval(*else_, env),
-            other => Err(format!("{} is not a boolean", other)),
+            other => panic!("{} is not a boolean", other),
         },
     }
 }
@@ -59,9 +43,8 @@ pub mod tests_eval {
         let code = Term::Float(80.0);
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(Value::Float(x)) => assert_eq!(x, 80.0),
-            Ok(result) => panic!("result of {} is not float: {}", code, result),
-            Err(err) => panic!("failed to eval {}: {}", code, err),
+            Value::Float(x) => assert_eq!(x, 80.0),
+            result => panic!("result of {} is not float: {}", code, result),
         }
     }
 
@@ -82,9 +65,8 @@ pub mod tests_eval {
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(Value::Float(x)) => assert_eq!(x, 7.0),
-            Ok(result) => panic!("result of {} is not float: {}", code, result),
-            Err(err) => panic!("failed to eval {}: {}", code, err),
+            Value::Float(x) => assert_eq!(x, 7.0),
+            result => panic!("result of {} is not float: {}", code, result),
         }
     }
 
@@ -100,9 +82,8 @@ pub mod tests_eval {
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(Value::Float(x)) => assert_eq!(x, 1.4),
-            Ok(result) => panic!("result of {} is not float: {}", code, result),
-            Err(err) => panic!("failed to eval {}: {}", code, err),
+            Value::Float(x) => assert_eq!(x, 1.4),
+            result => panic!("result of {} is not float: {}", code, result),
         }
     }
 
@@ -116,9 +97,8 @@ pub mod tests_eval {
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(Value::Float(x)) => assert_eq!(x, 80.0),
-            Ok(result) => panic!("result of {} is not float: {}", code, result),
-            Err(err) => panic!("failed to eval {}: {}", code, err),
+            Value::Float(x) => assert_eq!(x, 80.0),
+            result => panic!("result of {} is not float: {}", code, result),
         }
     }
 
@@ -131,9 +111,8 @@ pub mod tests_eval {
         );
         let env = Env::new();
         match eval(code.clone(), &env) {
-            Ok(Value::Float(x)) => assert_eq!(x, 80.0),
-            Ok(result) => panic!("result of {} is not float: {}", code, result),
-            Err(err) => panic!("failed to eval {}: {}", code, err),
+            Value::Float(x) => assert_eq!(x, 80.0),
+            result => panic!("result of {} is not float: {}", code, result),
         }
     }
 }
