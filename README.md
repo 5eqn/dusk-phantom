@@ -13,6 +13,10 @@ For more info, check `Makefile`.
 ## Syntax
 
 ```dp
+(f: Int -> Float) => (i: Int) => f(i)
+```
+
+```dp
 // Pitch shift
 (f: Freq -> Comp) => (i: Freq) => f(i * 2)
 
