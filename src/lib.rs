@@ -24,6 +24,7 @@ struct LocalState {
 
 struct PluginState {
     peak_meter: AtomicF32,
+    profiler: Mutex<String>,
     message: Mutex<String>,
     code_value: Mutex<Option<Value>>,
 }
@@ -49,6 +50,7 @@ impl Default for DuskPhantom {
             },
             plugin_state: PluginState {
                 peak_meter: AtomicF32::new(util::MINUS_INFINITY_DB),
+                profiler: Mutex::new("".into()),
                 message: Mutex::new("".into()),
                 code_value: Mutex::new(None),
             }.into(),
@@ -134,11 +136,13 @@ impl Plugin for DuskPhantom {
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
         // Bypass if there is no code
+        let profile_1 = std::time::Instant::now();
         let Some(code_value) = self.plugin_state.code_value.lock().unwrap().clone() else {
             return ProcessStatus::Normal;
         };
 
         // Calculate array indexer
+        let profile_2 = std::time::Instant::now();
         let arr = [1.0, -1.0];
         let indexer: Arc<I2F> = Arc::new(move |x| {
             let i = x as usize;
@@ -148,9 +152,13 @@ impl Plugin for DuskPhantom {
                 0.0
             }
         });
+
+        // Calculate product array
+        let profile_3 = std::time::Instant::now();
         let product_array = code_value.apply(indexer.into());
 
         // Iterate all samples
+        let profile_4 = std::time::Instant::now();
         for (i, channel_samples) in buffer.iter_samples().enumerate() {
             // Calculate gain
             let Value::Float(gain) = product_array.clone().apply(Value::Int(i as i32)) else {
@@ -185,6 +193,16 @@ impl Plugin for DuskPhantom {
                     .store(new_peak_meter, std::sync::atomic::Ordering::Relaxed)
             }
         }
+
+        // Store profiling result
+        let profile = format!(
+            "Profile: {} ns, {} ns, {} ns, {} ns",
+            profile_1.elapsed().as_nanos(),
+            profile_2.elapsed().as_nanos(),
+            profile_3.elapsed().as_nanos(),
+            profile_4.elapsed().as_nanos(),
+        );
+        *self.plugin_state.profiler.lock().unwrap() = profile;
 
         ProcessStatus::Normal
     }
