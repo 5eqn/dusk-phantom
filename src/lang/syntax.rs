@@ -5,6 +5,7 @@ use super::*;
 #[derive(Clone, PartialEq, Debug)]
 pub enum Syntax {
     Float(f32),
+    Int(i32),
     Bool(bool),
     Var(String),
     Extern(Extern),
@@ -18,6 +19,7 @@ impl fmt::Display for Syntax {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Syntax::Float(value) => write!(f, "Syntax::Float({:.3})", value),
+            Syntax::Int(value) => write!(f, "Syntax::Int({})", value),
             Syntax::Bool(value) => write!(f, "Syntax::Bool({})", value),
             Syntax::Var(name) => write!(f, "Syntax::Var({}.into())", name),
             Syntax::Extern(lib) => write!(f, "Syntax::Extern({})", lib),

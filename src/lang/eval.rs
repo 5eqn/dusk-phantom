@@ -9,6 +9,7 @@ pub type EvalError = String;
 pub fn eval(term: Term, env: &Env) -> Result<Value, EvalError> {
     match term {
         Term::Float(x) => Ok(Value::Float(x)),
+        Term::Int(x) => Ok(Value::Int(x)),
         Term::Bool(x) => Ok(Value::Bool(x)),
         Term::Var(v) => env
             .get(&v)
