@@ -8,7 +8,7 @@ impl Closure {
     pub fn apply(self, arg: Value) -> Value {
         let mut env = self.1;
         env.push(arg);
-        eval(*self.0, &env)
+        eval(*self.0, &mut env)
     }
 }
 

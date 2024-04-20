@@ -34,9 +34,9 @@ fn target_type() -> ValueType {
 }
 
 pub fn run(code: &str) -> Result<Value, RunError> {
-    let env = Vec::new();
+    let mut env = Vec::new();
     let ctx = HashMap::new();
     let syntax = parse(code).map_err(|e| format!("Parse error: {}", e))?;
     let term = check(syntax, ctx, target_type(), 0).map_err(|e| format!("Elaborate error: {}", e))?;
-    Ok(eval(term, &env))
+    Ok(eval(term, &mut env))
 }
