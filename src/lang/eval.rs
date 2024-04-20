@@ -2,7 +2,7 @@ use super::*;
 
 pub type Env = Vec<Value>;
 
-pub fn eval(term: Term, env: &Env) -> Value {
+pub fn eval(term: Term, env: &mut Env) -> Value {
     match term {
         Term::Float(x) => Value::Float(x),
         Term::Bool(x) => Value::Bool(x),
@@ -18,9 +18,8 @@ pub fn eval(term: Term, env: &Env) -> Value {
         ),
         Term::Let(_, _, body, next) => {
             let value = eval(*body, env);
-            let mut env = env.clone();
             env.push(value);
-            eval(*next, &env)
+            eval(*next, env)
         }
         Term::Alt(cond, then, else_) => match eval(*cond, env) {
             Value::Bool(true) => eval(*then, env),
@@ -38,8 +37,8 @@ pub mod tests_eval {
     #[test]
     fn test_minimal() {
         let code = Term::Float(80.0);
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 80.0),
             result => panic!("result of {} is not float: {}", code, result),
         }
@@ -60,8 +59,8 @@ pub mod tests_eval {
                 Term::Float(3.0).into(),
             ).into(),
         );
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 7.0),
             result => panic!("result of {} is not float: {}", code, result),
         }
@@ -77,8 +76,8 @@ pub mod tests_eval {
             )),
             Box::new(Term::Float(1.4)),
         );
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 1.4),
             result => panic!("result of {} is not float: {}", code, result),
         }
@@ -92,8 +91,8 @@ pub mod tests_eval {
             Box::new(Term::Float(80.0)),
             Box::new(Term::Var(0)),
         );
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 80.0),
             result => panic!("result of {} is not float: {}", code, result),
         }
@@ -106,8 +105,8 @@ pub mod tests_eval {
             Box::new(Term::Float(80.0)),
             Box::new(Term::Float(90.0)),
         );
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 80.0),
             result => panic!("result of {} is not float: {}", code, result),
         }
