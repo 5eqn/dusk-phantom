@@ -15,7 +15,7 @@ pub fn infer(syntax: Syntax, ctx: Ctx, env_len: Level) -> Result<(Term, ValueTyp
             Some((level, value_type)) => Ok((Term::Var(env_len - level - 1), value_type.clone())),
             None => Err(format!("Variable not found: {}", name)),
         },
-        Syntax::Extern(lib) => Ok((Term::Extern(lib.clone()), lib.into())),
+        Syntax::Lib(lib) => Ok((Term::Lib(lib.clone()), lib.into())),
         Syntax::Apply(func, arg) => {
             let (func_term, func_type) = infer(*func, ctx.clone(), env_len)?;
             match func_type {

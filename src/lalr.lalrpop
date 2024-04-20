@@ -25,27 +25,27 @@ Func: Syntax = {
 }
 
 CmpExpr: Syntax = {
-    <l: CmpExpr> "<" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Lt).into(), l.into()).into(), r.into()),
-    <l: CmpExpr> ">" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Gt).into(), l.into()).into(), r.into()),
-    <l: CmpExpr> "<=" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Le).into(), l.into()).into(), r.into()),
-    <l: CmpExpr> ">=" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Ge).into(), l.into()).into(), r.into()),
+    <l: CmpExpr> "<" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Lt).into(), l.into()).into(), r.into()),
+    <l: CmpExpr> ">" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Gt).into(), l.into()).into(), r.into()),
+    <l: CmpExpr> "<=" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Le).into(), l.into()).into(), r.into()),
+    <l: CmpExpr> ">=" <r: AddExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Ge).into(), l.into()).into(), r.into()),
     <l: AddExpr> => l,
 }
 
 AddExpr: Syntax = {
-    <l: AddExpr> "+" <r: MulExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Add).into(), l.into()).into(), r.into()),
-    <l: AddExpr> "-" <r: MulExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Sub).into(), l.into()).into(), r.into()),
+    <l: AddExpr> "+" <r: MulExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Add).into(), l.into()).into(), r.into()),
+    <l: AddExpr> "-" <r: MulExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Sub).into(), l.into()).into(), r.into()),
     <l: MulExpr> => l,
 }
 
 MulExpr: Syntax = {
-    <l: MulExpr> "*" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Mul).into(), l.into()).into(), r.into()),
-    <l: MulExpr> "/" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Div).into(), l.into()).into(), r.into()),
+    <l: MulExpr> "*" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Mul).into(), l.into()).into(), r.into()),
+    <l: MulExpr> "/" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Div).into(), l.into()).into(), r.into()),
     <l: UnaryExpr> => l,
 }
 
 UnaryExpr: Syntax = {
-    "-" <x: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Extern(Extern::Sub).into(), Syntax::Float(0.0).into()).into(), x.into()),
+    "-" <x: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Sub).into(), Syntax::Float(0.0).into()).into(), x.into()),
     <x: Apply> => x,
 }
 
