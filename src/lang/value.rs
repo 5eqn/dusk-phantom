@@ -2,17 +2,17 @@ use super::*;
 use std::fmt::Display;
 
 #[derive(Clone, PartialEq)]
-pub struct Closure(pub Box<Term>, pub Env, pub String);
+pub struct Closure<'a>(pub Box<Term>, pub Env<'a>, pub String);
 
-impl Closure {
-    pub fn apply(self, arg: Value) -> Value {
+impl<'a> Closure<'a> {
+    pub fn apply(self, arg: Value<'a>) -> Value<'a> {
         let mut env = self.1;
         env.push(arg);
         eval(*self.0, &mut env)
     }
 }
 
-impl Display for Closure {
+impl<'a> Display for Closure<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Closure({}.into(), vec![{}], {}.into())", 
             self.0, 
@@ -23,19 +23,21 @@ impl Display for Closure {
 }
 
 #[derive(Clone)]
-pub enum Value {
+pub enum Value<'a> {
     Float(f32),
     Bool(bool),
     Lib(Lib),
-    Apply(Box<Value>, Vec<Value>),
-    Func(Box<ValueType>, Closure),
+    Extern(Extern<'a>),
+    Apply(Box<Value<'a>>, Vec<Value<'a>>),
+    Func(Box<ValueType>, Closure<'a>),
 }
 
-impl Value {
-    pub fn apply(self, arg: Value) -> Value {
+impl<'a> Value<'a> {
+    pub fn apply(self, arg: Value<'a>) -> Value<'a> {
         match self {
             Value::Func(_, closure) => closure.apply(arg),
             Value::Lib(l) => l.apply(arg),
+            Value::Extern(e) => e.apply(arg),
             Value::Apply(func, mut args) => {
                 args.push(arg);
                 Value::Apply(func, args)
@@ -44,18 +46,18 @@ impl Value {
         }
     }
 
-    pub fn collect(self, range: impl Iterator<Item = usize>) -> Vec<Value> {
+    pub fn collect(self, range: impl Iterator<Item = usize>) -> Vec<Value<'a>> {
         range.map(move |i| self.clone().apply(Value::Float(i as f32))).collect()
     }
 }
 
-impl From<Vec<f32>> for Value {
-    fn from(values: Vec<f32>) -> Self {
-        Value::Lib(Lib::Idx(values))
+impl<'a> From<&'a [f32]> for Value<'a> {
+    fn from(values: &'a [f32]) -> Self {
+        Value::Extern(Extern::Idx(values))
     }
 }
 
-impl PartialEq for Value {
+impl<'a> PartialEq for Value<'a> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Value::Float(x), Value::Float(y)) => x == y,
@@ -67,12 +69,13 @@ impl PartialEq for Value {
     }
 }
 
-impl Display for Value {
+impl<'a> Display for Value<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
             Value::Bool(x) => write!(f, "Value::Bool({})", x),
             Value::Lib(_) => write!(f, "Value::Lib(_)"),
+            Value::Extern(e) => write!(f, "Value::Extern({})", e),
             Value::Apply(func, args) => write!(
                 f,
                 "Value::Apply({}.into(), vec![{}])",
@@ -87,12 +90,13 @@ impl Display for Value {
     }
 }
 
-impl Value {
+impl<'a> Value<'a> {
     pub fn pretty_term(&self) -> String {
         match self {
             Value::Float(x) => format!("{:.3}", x),
             Value::Bool(x) => x.to_string(),
             Value::Lib(_) => "_".into(),
+            Value::Extern(e) => e.to_string(),
             Value::Apply(func, args) => format!(
                 "{}({})",
                 func.pretty_atom(),

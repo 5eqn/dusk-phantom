@@ -1,6 +1,7 @@
 pub mod elaborate;
 pub mod eval;
 pub mod library;
+pub mod external;
 pub mod parse;
 pub mod syntax;
 pub mod term;
@@ -16,6 +17,7 @@ use parse::*;
 pub use syntax::*;
 pub use term::*;
 pub use value::*;
+pub use external::*;
 pub use value_type::*;
 
 pub type RunError = String;
@@ -33,7 +35,7 @@ fn target_type() -> ValueType {
     )
 }
 
-pub fn run(code: &str) -> Result<Value, RunError> {
+pub fn run<'a>(code: &str) -> Result<Value<'a>, RunError> {
     let mut env = Vec::new();
     let ctx = HashMap::new();
     let syntax = parse(code).map_err(|e| format!("Parse error: {}", e))?;
