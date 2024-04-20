@@ -15,7 +15,7 @@ For more info, check `Makefile`.
 ```dp
 let lp: Float -> Float -> Float = (l: Float) => (i: Float) => 
   if i < l then 1 else 0 in
-(f: Float -> Float) => (i: Float) => f(i) * lp(24)(i)
+(f: Float -> Float) => (i: Float) => f(i) * lp(200)(i)
 ```
 
 ```dp
