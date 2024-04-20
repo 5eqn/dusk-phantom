@@ -7,7 +7,7 @@ pub struct Closure<'a>(pub Box<Term>, pub Env<'a>, pub String);
 impl<'a> Closure<'a> {
     pub fn ref_apply(&mut self, arg: Value<'a>) -> Value<'a> {
         self.1.push(arg);
-        let result = ref_eval(*self.0.clone(), &mut self.1);
+        let result = ref_eval(&mut self.0, &mut self.1);
         self.1.pop();
         result
     }
@@ -38,6 +38,7 @@ impl<'a> Display for Closure<'a> {
 #[derive(Clone)]
 pub enum Value<'a> {
     Float(f32),
+    Int(i32),
     Bool(bool),
     Lib(Lib),
     Extern(Extern<'a>),
@@ -76,7 +77,7 @@ impl<'a> Value<'a> {
     pub fn collect(&mut self, range: impl Iterator<Item = usize>) -> Vec<Value<'a>> {
         let mut values = Vec::new();
         for i in range {
-            values.push(self.ref_apply(Value::Float(i as f32)));
+            values.push(self.ref_apply(Value::Int(i as i32)));
         }
         values
     }
@@ -92,6 +93,7 @@ impl<'a> PartialEq for Value<'a> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Value::Float(x), Value::Float(y)) => x == y,
+            (Value::Int(x), Value::Int(y)) => x == y,
             (Value::Bool(x), Value::Bool(y)) => x == y,
             (Value::Apply(f1, a1), Value::Apply(f2, a2)) => f1 == f2 && a1 == a2,
             (Value::Func(p1, c1), Value::Func(p2, c2)) => p1 == p2 && c1 == c2,
@@ -104,6 +106,7 @@ impl<'a> Display for Value<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
+            Value::Int(x) => write!(f, "Value::Int({})", x),
             Value::Bool(x) => write!(f, "Value::Bool({})", x),
             Value::Lib(_) => write!(f, "Value::Lib(_)"),
             Value::Extern(e) => write!(f, "Value::Extern({})", e),
@@ -125,6 +128,7 @@ impl<'a> Value<'a> {
     pub fn pretty_term(&self) -> String {
         match self {
             Value::Float(x) => format!("{:.3}", x),
+            Value::Int(x) => x.to_string(),
             Value::Bool(x) => x.to_string(),
             Value::Lib(_) => "_".into(),
             Value::Extern(e) => e.to_string(),
