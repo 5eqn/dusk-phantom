@@ -41,6 +41,9 @@ inherits = "release"
 debug = true
 strip = "none"
 
+[profile.bench]
+debug = true
+
 [dev-dependencies]
 criterion = "0.3.0"
 

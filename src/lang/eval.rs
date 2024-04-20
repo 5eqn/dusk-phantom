@@ -2,6 +2,8 @@ use super::*;
 
 pub type Env<'a> = Vec<Value<'a>>;
 
+/// Evaluate a term
+/// `env` will only be temporarily mutated
 pub fn eval<'a>(term: Term, env: &mut Env<'a>) -> Value<'a> {
     match term {
         Term::Float(x) => Value::Float(x),
@@ -19,11 +21,42 @@ pub fn eval<'a>(term: Term, env: &mut Env<'a>) -> Value<'a> {
         Term::Let(_, _, body, next) => {
             let value = eval(*body, env);
             env.push(value);
-            eval(*next, env)
+            let result = eval(*next, env);
+            env.pop();
+            result
         }
         Term::Alt(cond, then, else_) => match eval(*cond, env) {
             Value::Bool(true) => eval(*then, env),
             Value::Bool(false) => eval(*else_, env),
+            other => panic!("{} is not a boolean", other),
+        },
+    }
+}
+
+/// Evaluate a term
+/// Consumes the environment
+pub fn eval2(term: Term, mut env: Env) -> Value {
+    match term {
+        Term::Float(x) => Value::Float(x),
+        Term::Bool(x) => Value::Bool(x),
+        Term::Var(v) => env.swap_remove(env.len() - v as usize - 1),
+        Term::Apply(func, arg) => {
+            let arg = eval(*arg, &mut env);
+            eval2(*func, env).apply(arg)
+        },
+        Term::Lib(x) => Value::Lib(x),
+        Term::Func(return_type, name, body) => Value::Func(
+            return_type,
+            Closure(body, env, name),
+        ),
+        Term::Let(_, _, body, next) => {
+            let value = eval(*body, &mut env);
+            env.push(value);
+            eval2(*next, env)
+        }
+        Term::Alt(cond, then, else_) => match eval(*cond, &mut env) {
+            Value::Bool(true) => eval2(*then, env),
+            Value::Bool(false) => eval2(*else_, env),
             other => panic!("{} is not a boolean", other),
         },
     }
