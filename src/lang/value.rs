@@ -8,15 +8,21 @@ impl<'a> Closure<'a> {
     pub fn apply(self, arg: Value<'a>) -> Value<'a> {
         let mut env = self.1;
         env.push(arg);
-        eval2(*self.0, env)
+        eval(*self.0, env)
     }
 }
 
 impl<'a> Display for Closure<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Closure({}.into(), vec![{}], {}.into())", 
-            self.0, 
-            self.1.iter().map(|v| format!("{}.into()", v)).collect::<Vec<_>>().join(", "),
+        write!(
+            f,
+            "Closure({}.into(), vec![{}], {}.into())",
+            self.0,
+            self.1
+                .iter()
+                .map(|v| format!("{}.into()", v))
+                .collect::<Vec<_>>()
+                .join(", "),
             self.2
         )
     }
@@ -33,6 +39,20 @@ pub enum Value<'a> {
 }
 
 impl<'a> Value<'a> {
+    pub fn ref_apply(&self, arg: Value<'a>) -> Value<'a> {
+        match &self {
+            Value::Func(_, closure) => closure.clone().apply(arg),
+            Value::Lib(l) => l.clone().apply(arg),
+            Value::Extern(e) => e.clone().apply(arg),
+            Value::Apply(func, args) => {
+                let mut args = args.clone();
+                args.push(arg);
+                Value::Apply(func.clone(), args)
+            }
+            other => Value::Apply((*other).clone().into(), vec![arg]),
+        }
+    }
+
     pub fn apply(self, arg: Value<'a>) -> Value<'a> {
         match self {
             Value::Func(_, closure) => closure.apply(arg),
@@ -47,7 +67,9 @@ impl<'a> Value<'a> {
     }
 
     pub fn collect(self, range: impl Iterator<Item = usize>) -> Vec<Value<'a>> {
-        range.map(move |i| self.clone().apply(Value::Float(i as f32))).collect()
+        range
+            .map(move |i| self.clone().apply(Value::Float(i as f32)))
+            .collect()
     }
 }
 
@@ -106,9 +128,9 @@ impl<'a> Value<'a> {
                     .join(", "),
             ),
             Value::Func(param, closure) => format!(
-                "({}: {}) => {}", 
-                closure.2, 
-                param.pretty_term(), 
+                "({}: {}) => {}",
+                closure.2,
+                param.pretty_term(),
                 closure.0.pretty_term(),
             ),
         }
@@ -121,3 +143,4 @@ impl<'a> Value<'a> {
         }
     }
 }
+
