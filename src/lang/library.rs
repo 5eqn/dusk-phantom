@@ -19,7 +19,6 @@ pub enum Lib {
     Gt1(f32),
     Ge,
     Ge1(f32),
-    Idx(Vec<f32>),
 }
 
 impl Display for Lib {
@@ -41,7 +40,6 @@ impl Display for Lib {
             Lib::Le1(x) => write!(f, "le({:.3})", x),
             Lib::Gt1(x) => write!(f, "gt({:.3})", x),
             Lib::Ge1(x) => write!(f, "ge({:.3})", x),
-            Lib::Idx(values) => write!(f, "idx({:?})", values),
         }
     }
 }
@@ -67,14 +65,6 @@ impl Lib {
                     Lib::Le1(x) => Value::Bool(x <= f),
                     Lib::Gt1(x) => Value::Bool(x > f),
                     Lib::Ge1(x) => Value::Bool(x >= f),
-                    Lib::Idx(values) => {
-                        let i = f as usize;
-                        if i >= values.len() {
-                            Value::Float(0.0)
-                        } else {
-                            Value::Float(values[i])
-                        }
-                    }
                 }
             }
             _ => panic!("{} is not a float", arg),
@@ -89,7 +79,6 @@ impl From<Lib> for ValueType {
             Lib::Lt | Lib::Le | Lib::Gt | Lib::Ge => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)))),
             Lib::Add1(_) | Lib::Sub1(_) | Lib::Mul1(_) | Lib::Div1(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
             Lib::Lt1(_) | Lib::Le1(_) | Lib::Gt1(_) | Lib::Ge1(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)),
-            Lib::Idx(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
         }
     }
 }

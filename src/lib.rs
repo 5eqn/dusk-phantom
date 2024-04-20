@@ -45,7 +45,7 @@ struct PluginState {
     debug: Mutex<String>,
     profiler: Mutex<String>,
     message: Mutex<String>,
-    code_value: Mutex<Option<Value>>,
+    code_value: Mutex<Option<Value<'static>>>,
 }
 
 #[derive(Params)]
@@ -310,12 +310,14 @@ impl Plugin for DuskPhantom {
                 // Calculate new magnitudes
                 let profile_2 = std::time::Instant::now();
                 let len = self.local_state.complex_fft_buffer.len();
-                let norms: Vec<_> = self
+                let norms_vec = self
                     .local_state
                     .complex_fft_buffer
                     .iter()
                     .map(|c| c.norm())
-                    .collect();
+                    .collect::<Vec<_>>();
+                let norms = norms_vec
+                    .as_slice();
                 let result = code_value.apply(norms.into()).collect(0..len);
 
                 // Apply new magnitudes

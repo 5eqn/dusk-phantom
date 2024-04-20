@@ -1,8 +1,8 @@
 use super::*;
 
-pub type Env = Vec<Value>;
+pub type Env<'a> = Vec<Value<'a>>;
 
-pub fn eval(term: Term, env: &mut Env) -> Value {
+pub fn eval<'a>(term: Term, env: &mut Env<'a>) -> Value<'a> {
     match term {
         Term::Float(x) => Value::Float(x),
         Term::Bool(x) => Value::Bool(x),
