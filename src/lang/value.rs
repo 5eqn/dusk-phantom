@@ -1,5 +1,5 @@
 use super::*;
-use std::{fmt::Display, sync::Arc};
+use std::fmt::Display;
 
 #[derive(Clone, PartialEq)]
 pub struct Closure(pub Box<Term>, pub Env, pub String);
@@ -26,7 +26,7 @@ impl Display for Closure {
 pub enum Value {
     Float(f32),
     Bool(bool),
-    Extern(Arc<V2V>),
+    Lib(Lib),
     Apply(Box<Value>, Vec<Value>),
     Func(Box<ValueType>, Closure),
 }
@@ -35,7 +35,7 @@ impl Value {
     pub fn apply(self, arg: Value) -> Value {
         match self {
             Value::Func(_, closure) => closure.apply(arg),
-            Value::Extern(f) => f(arg),
+            Value::Lib(l) => l.apply(arg),
             Value::Apply(func, mut args) => {
                 args.push(arg);
                 Value::Apply(func, args)
@@ -51,65 +51,7 @@ impl Value {
 
 impl From<Vec<f32>> for Value {
     fn from(values: Vec<f32>) -> Self {
-        let indexer: Arc<F2F> = Arc::new(move |i| {
-            let i: usize = i as usize;
-            if i >= values.len() {
-                0.0
-            } else {
-                values[i]
-            }
-        });
-        indexer.into()
-    }
-}
-
-pub type V2V = dyn Fn(Value) -> Value + Send + Sync;
-pub type F2F = dyn Fn(f32) -> f32 + Send + Sync;
-pub type F2B = dyn Fn(f32) -> bool + Send + Sync;
-pub type FF2F = dyn Fn(f32, f32) -> f32 + Send + Sync;
-pub type FF2B = dyn Fn(f32, f32) -> bool + Send + Sync;
-
-impl From<Arc<F2F>> for Value {
-    fn from(f: Arc<F2F>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Float(x) => Value::Float(f(x)),
-            _ => panic!("Expected float"),
-        }))
-    }
-}
-
-impl From<Arc<F2B>> for Value {
-    fn from(f: Arc<F2B>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Float(x) => Value::Bool(f(x)),
-            _ => panic!("Expected float"),
-        }))
-    }
-}
-
-impl From<Arc<FF2F>> for Value {
-    fn from(f: Arc<FF2F>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Float(x) => {
-                let f: Arc<FF2F> = f.clone();
-                let res: Arc<F2F> = Arc::new(move |y| f(x, y));
-                res.into()
-            }
-            _ => panic!("Expected float"),
-        }))
-    }
-}
-
-impl From<Arc<FF2B>> for Value {
-    fn from(f: Arc<FF2B>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Float(x) => {
-                let f: Arc<FF2B> = f.clone();
-                let res: Arc<F2B> = Arc::new(move |y| f(x, y));
-                res.into()
-            }
-            _ => panic!("Expected float"),
-        }))
+        Value::Lib(Lib::Idx(values))
     }
 }
 
@@ -130,7 +72,7 @@ impl Display for Value {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
             Value::Bool(x) => write!(f, "Value::Bool({})", x),
-            Value::Extern(_) => write!(f, "Value::Extern(_)"),
+            Value::Lib(_) => write!(f, "Value::Lib(_)"),
             Value::Apply(func, args) => write!(
                 f,
                 "Value::Apply({}.into(), vec![{}])",
@@ -150,7 +92,7 @@ impl Value {
         match self {
             Value::Float(x) => format!("{:.3}", x),
             Value::Bool(x) => x.to_string(),
-            Value::Extern(_) => "_".into(),
+            Value::Lib(_) => "_".into(),
             Value::Apply(func, args) => format!(
                 "{}({})",
                 func.pretty_atom(),

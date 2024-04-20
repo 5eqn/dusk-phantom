@@ -11,7 +11,7 @@ pub fn eval(term: Term, env: &mut Env) -> Value {
             .unwrap()
             .clone(),
         Term::Apply(func, arg) => eval(*func, env).apply(eval(*arg, env)),
-        Term::Extern(x) => x.into(),
+        Term::Lib(x) => Value::Lib(x),
         Term::Func(return_type, name, body) => Value::Func(
             return_type,
             Closure(body, env.clone(), name),
@@ -48,12 +48,12 @@ pub mod tests_eval {
     fn test_numeric() {
         let code = Term::Apply(
             Term::Apply(
-                Box::new(Term::Extern(Extern::Mul)),
+                Box::new(Term::Lib(Lib::Mul)),
                 Box::new(Term::Float(1.4)),
             ).into(),
             Term::Apply(
                 Term::Apply(
-                    Box::new(Term::Extern(Extern::Add)),
+                    Box::new(Term::Lib(Lib::Add)),
                     Box::new(Term::Float(2.0)),
                 ).into(),
                 Term::Float(3.0).into(),
