@@ -45,6 +45,32 @@ impl Display for Lib {
 }
 
 impl Lib {
+    pub fn ref_apply<'a>(&self, arg: Value<'a>) -> Value<'a> {
+        match arg {
+            Value::Float(f) => {
+                match self {
+                    Lib::Add => Value::Lib(Lib::Add1(f)),
+                    Lib::Sub => Value::Lib(Lib::Sub1(f)),
+                    Lib::Mul => Value::Lib(Lib::Mul1(f)),
+                    Lib::Div => Value::Lib(Lib::Div1(f)),
+                    Lib::Lt => Value::Lib(Lib::Lt1(f)),
+                    Lib::Le => Value::Lib(Lib::Le1(f)),
+                    Lib::Gt => Value::Lib(Lib::Gt1(f)),
+                    Lib::Ge => Value::Lib(Lib::Ge1(f)),
+                    Lib::Add1(x) => Value::Float(x + f),
+                    Lib::Sub1(x) => Value::Float(x - f),
+                    Lib::Mul1(x) => Value::Float(x * f),
+                    Lib::Div1(x) => Value::Float(x / f),
+                    Lib::Lt1(x) => Value::Bool(*x < f),
+                    Lib::Le1(x) => Value::Bool(*x <= f),
+                    Lib::Gt1(x) => Value::Bool(*x > f),
+                    Lib::Ge1(x) => Value::Bool(*x >= f),
+                }
+            }
+            _ => panic!("{} is not a float", arg),
+        }
+    }
+
     pub fn apply(self, arg: Value) -> Value {
         match arg {
             Value::Float(f) => {

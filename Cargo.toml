@@ -33,20 +33,21 @@ realfft = "3.3.0"
 rand = "0.8.5"
 
 [profile.release]
-lto = "thin"
-strip = "symbols"
+debug = true
 
 [profile.profiling]
-inherits = "release"
 debug = true
-strip = "none"
+inherits = "release"
 
 [profile.bench]
+debug = true
+
+[profile.test]
 debug = true
 
 [dev-dependencies]
 criterion = "0.3.0"
 
 [[bench]]
-name = "eval"
+name = "evaluation"
 harness = false
