@@ -1,18 +1,30 @@
-/// Default code.
 pub const DEFAULT_CODE: &str = "1";
 
-/// The order of FFT precision.
-pub const FFT_ORDER: usize = 11;
+pub const MIN_WINDOW_ORDER: usize = 6;
 
-/// The size of the windows we'll process at a time.
-pub const WINDOW_SIZE: usize = 1 << FFT_ORDER;
+#[allow(dead_code)]
+pub const MIN_WINDOW_SIZE: usize = 1 << MIN_WINDOW_ORDER; // 64
 
-/// The length of the filter's impulse response.
-pub const FILTER_WINDOW_SIZE: usize = (1 << (FFT_ORDER - 1)) + 1;
+pub const DEFAULT_WINDOW_ORDER: usize = 11;
 
-/// The length of the FFT window we will use to perform FFT convolution. This includes padding to
-/// prevent time domain aliasing as a result of cyclic convolution.
-pub const FFT_WINDOW_SIZE: usize = WINDOW_SIZE + FILTER_WINDOW_SIZE - 1;
+#[allow(dead_code)]
+pub const DEFAULT_WINDOW_SIZE: usize = 1 << DEFAULT_WINDOW_ORDER; // 2048
 
-/// The gain compensation we need to apply for the STFT process.
-pub const GAIN_COMPENSATION: f32 = 1.0 / FFT_WINDOW_SIZE as f32;
+pub const MAX_WINDOW_ORDER: usize = 15;
+
+pub const MAX_WINDOW_SIZE: usize = 1 << MAX_WINDOW_ORDER; // 32768
+
+pub const MIN_OVERLAP_ORDER: usize = 2;
+
+#[allow(dead_code)]
+pub const MIN_OVERLAP_TIMES: usize = 1 << MIN_OVERLAP_ORDER; // 4
+
+pub const DEFAULT_OVERLAP_ORDER: usize = 4;
+
+#[allow(dead_code)]
+pub const DEFAULT_OVERLAP_TIMES: usize = 1 << DEFAULT_OVERLAP_ORDER; // 16
+
+pub const MAX_OVERLAP_ORDER: usize = 5;
+
+#[allow(dead_code)]
+pub const MAX_OVERLAP_TIMES: usize = 1 << MAX_OVERLAP_ORDER; // 32

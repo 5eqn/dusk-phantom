@@ -74,16 +74,12 @@ pub(crate) fn create(
             Textbox::new_multiline(cx, Data::params.map(|p| p.code.lock().unwrap().to_string()), true)
                 .font_family(vec![FamilyOwned::Name(String::from(JB_MONO))])
                 .width(Percentage(75.0))
-                .height(Pixels(360.0))
+                .height(Pixels(320.0))
                 .bottom(Stretch(1.0))
                 .on_edit(|cx, code| cx.emit(AppEvent::SetCode(code)));
 
-            // Error message
-            Label::new(
-                cx,
-                Data::plugin_state.map(|st| st.message.lock().unwrap().to_string()),
-            )
-            .width(Percentage(75.0))
+            // Generic params
+            GenericUi::new(cx, Data::params.map(|p| p.global.clone()))
             .bottom(Stretch(1.0));
 
             // Profiling message
@@ -100,6 +96,15 @@ pub(crate) fn create(
                 Data::plugin_state.map(|st| st.debug.lock().unwrap().to_string()),
             )
             .width(Percentage(75.0))
+            .bottom(Stretch(1.0));
+
+            // Error message
+            Label::new(
+                cx,
+                Data::plugin_state.map(|st| st.message.lock().unwrap().to_string()),
+            )
+            .width(Percentage(75.0))
+            .height(Pixels(30.0))
             .bottom(Stretch(1.0));
         })
         .row_between(Pixels(0.0))

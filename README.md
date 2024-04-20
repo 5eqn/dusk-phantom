@@ -13,12 +13,9 @@ For more info, check `Makefile`.
 ## Syntax
 
 ```dp
-let lp: Float -> Float -> Float -> Float = 
-  (l: Float) => (r: Float) => (i: Float) => 
-    if i < l then 1 else
-    if i > r then 0 else
-    (r - i) / (r - l) in
-(f: Float -> Float) => (i: Float) => f(i*2)
+let lp: Float -> Float -> Float = (l: Float) => (i: Float) => 
+  if i < l then 1 else 0 in
+(f: Float -> Float) => (i: Float) => f(i) * lp(24)(i)
 ```
 
 ```dp
