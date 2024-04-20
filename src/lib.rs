@@ -18,17 +18,27 @@ pub struct DuskPhantom {
 }
 
 struct LocalState {
-    /// The algorithm for the FFT operation.
-    r2c_plan: Arc<dyn RealToComplex<f32>>,
-
-    /// The algorithm for the IFFT operation.
-    c2r_plan: Arc<dyn ComplexToReal<f32>>,
+    /// The algorithms for the FFT and IFFT operations, for each supported order so we can switch
+    /// between them without replanning or allocations. Initialized during `initialize()`.
+    plan_for_order: Option<[Plan; MAX_WINDOW_ORDER - MIN_WINDOW_ORDER + 1]>,
 
     /// The output of our real->complex FFT.
     complex_fft_buffer: Vec<Complex32>,
     
     /// An adapter that performs most of the overlap-add algorithm for us.
     stft: util::StftHelper,
+
+    /// Contains a Hann window function of the current window length, passed to the overlap-add
+    /// helper. Allocated with a `MAX_WINDOW_SIZE` initial capacity.
+    window_function: Vec<f32>,
+}
+
+/// An FFT plan for a specific window size, all of which will be precomputed during initilaization.
+struct Plan {
+    /// The algorithm for the FFT operation.
+    r2c_plan: Arc<dyn RealToComplex<f32>>,
+    /// The algorithm for the IFFT operation.
+    c2r_plan: Arc<dyn ComplexToReal<f32>>,
 }
 
 struct PluginState {
@@ -48,21 +58,36 @@ struct PluginParams {
     /// The code to compile
     #[persist = "code"]
     code: Arc<Mutex<String>>,
+
+    // NOTE: These `Arc`s are only here temporarily to work around Vizia's Lens requirements so we
+    // can use the generic UIs
+    /// Global parameters. These could just live in this struct but I wanted a separate generic UI
+    /// just for these.
+    #[nested(group = "global")]
+    pub global: Arc<GlobalParams>,
+}
+
+#[derive(Params)]
+pub struct GlobalParams {
+    /// The size of the FFT window as a power of two (to prevent invalid inputs).
+    #[id = "stft_window"]
+    pub window_size_order: IntParam,
+
+    /// The amount of overlap to use in the overlap-add algorithm as a power of two (again to
+    /// prevent invalid inputs).
+    #[id = "stft_overlap"]
+    pub overlap_times_order: IntParam,
 }
 
 impl Default for DuskPhantom {
     fn default() -> Self {
-        let mut planner = RealFftPlanner::new();
-        let r2c_plan = planner.plan_fft_forward(FFT_WINDOW_SIZE);
-        let c2r_plan = planner.plan_fft_inverse(FFT_WINDOW_SIZE);
-        let complex_fft_buffer = r2c_plan.make_output_vec();
         Self {
             params: PluginParams::default().into(),
             local_state: LocalState {
-                stft: util::StftHelper::new(2, WINDOW_SIZE, FFT_WINDOW_SIZE - WINDOW_SIZE),
-                r2c_plan,
-                c2r_plan,
-                complex_fft_buffer,
+                stft: util::StftHelper::new(2, MAX_WINDOW_SIZE, 0),
+                plan_for_order: None,
+                window_function: Vec::with_capacity(MAX_WINDOW_SIZE),
+                complex_fft_buffer: Vec::with_capacity(MAX_WINDOW_SIZE / 2 + 1),
             },
             plugin_state: PluginState {
                 debug: Mutex::new("".into()),
@@ -79,7 +104,57 @@ impl Default for PluginParams {
         Self {
             editor_state: editor::default_state(),
             code: Arc::new(Mutex::new(DEFAULT_CODE.into())),
+            global: Arc::new(GlobalParams::default()),
         }
+    }
+}
+
+impl Default for GlobalParams {
+    fn default() -> Self {
+        GlobalParams {
+            window_size_order: IntParam::new(
+                "Window Size",
+                DEFAULT_WINDOW_ORDER as i32,
+                IntRange::Linear {
+                    min: MIN_WINDOW_ORDER as i32,
+                    max: MAX_WINDOW_ORDER as i32,
+                },
+            )
+            .with_value_to_string(formatters::v2s_i32_power_of_two())
+            .with_string_to_value(formatters::s2v_i32_power_of_two()),
+            overlap_times_order: IntParam::new(
+                "Window Overlap",
+                DEFAULT_OVERLAP_ORDER as i32,
+                IntRange::Linear {
+                    min: MIN_OVERLAP_ORDER as i32,
+                    max: MAX_OVERLAP_ORDER as i32,
+                },
+            )
+            .with_value_to_string(formatters::v2s_i32_power_of_two())
+            .with_string_to_value(formatters::s2v_i32_power_of_two()),
+        }
+    }
+}
+
+impl DuskPhantom {
+    fn window_size(&self) -> usize {
+        1 << self.params.global.window_size_order.value() as usize
+    }
+
+    fn overlap_times(&self) -> usize {
+        1 << self.params.global.overlap_times_order.value() as usize
+    }
+
+    /// `window_size` should not exceed `MAX_WINDOW_SIZE` or this will allocate.
+    fn resize_for_window(&mut self, window_size: usize) {
+        // The FFT algorithms for this window size have already been planned in
+        // `self.plan_for_order`, and all of these data structures already have enough capacity, so
+        // we just need to change some sizes.
+        self.local_state.stft.set_block_size(window_size);
+        self.local_state.window_function.resize(window_size, 0.0);
+        util::window::hann_in_place(&mut self.local_state.window_function);
+        self.local_state.complex_fft_buffer
+            .resize(window_size / 2 + 1, Complex32::default());
     }
 }
 
@@ -123,7 +198,7 @@ impl Plugin for DuskPhantom {
 
     fn initialize(
         &mut self,
-        _audio_io_layout: &AudioIOLayout,
+        audio_io_layout: &AudioIOLayout,
         _buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
@@ -135,40 +210,100 @@ impl Plugin for DuskPhantom {
         *self.plugin_state.message.lock().unwrap() = msg;
         *self.plugin_state.code_value.lock().unwrap() = code;
 
-        // The plugin's latency consists of the block size from the overlap-add procedure and half
-        // of the filter kernel's size (since we're using a linear phase/symmetrical convolution
-        // kernel)
-        context.set_latency_samples(self.local_state.stft.latency_samples() + (FILTER_WINDOW_SIZE as u32 / 2));
+        // This plugin can accept a variable number of audio channels, so we need to resize
+        // channel-dependent data structures accordingly
+        let num_output_channels = audio_io_layout
+            .main_output_channels
+            .expect("Plugin does not have a main output")
+            .get() as usize;
+        if self.local_state.stft.num_channels() != num_output_channels {
+            self.local_state.stft = util::StftHelper::new(self.local_state.stft.num_channels(), MAX_WINDOW_SIZE, 0);
+        }
+
+        // Planning with RustFFT is very fast, but it will still allocate we we'll plan all of the
+        // FFTs we might need in advance
+        if self.local_state.plan_for_order.is_none() {
+            let mut planner = RealFftPlanner::new();
+            let plan_for_order: Vec<Plan> = (MIN_WINDOW_ORDER..=MAX_WINDOW_ORDER)
+                .map(|order| Plan {
+                    r2c_plan: planner.plan_fft_forward(1 << order),
+                    c2r_plan: planner.plan_fft_inverse(1 << order),
+                })
+                .collect();
+            self.local_state.plan_for_order = Some(
+                plan_for_order
+                    .try_into()
+                    .unwrap_or_else(|_| panic!("Mismatched plan orders")),
+            );
+        }
+
+        // Resize the window function and the FFT buffer to the new window size
+        let window_size = self.window_size();
+        self.resize_for_window(window_size);
+
+        // Set the latency to the STFT latency
+        context.set_latency_samples(self.local_state.stft.latency_samples());
 
         // Initialization success
         true
-    }
-
-    fn reset(&mut self) {
-        // Normally we'd also initialize the STFT helper for the correct channel count here, but we
-        // only do stereo so that's not necessary. Setting the block size also zeroes out the
-        // buffers.
-        self.local_state.stft.set_block_size(WINDOW_SIZE);
     }
 
     fn process(
         &mut self,
         buffer: &mut Buffer,
         _aux: &mut AuxiliaryBuffers,
-        _context: &mut impl ProcessContext<Self>,
+        context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        // Bypass if there is no code
+        let Some(_) = self.plugin_state.code_value.lock().unwrap().clone() else {
+            return ProcessStatus::Normal;
+        };
+
+        // If the window size has changed since the last process call, reset the buffers and chance
+        // our latency. All of these buffers already have enough capacity so this won't allocate.
+        let window_size = self.window_size();
+        let overlap_times = self.overlap_times();
+        if self.local_state.window_function.len() != window_size {
+            self.resize_for_window(window_size);
+            context.set_latency_samples(self.local_state.stft.latency_samples());
+        }
+
+        // These plans have already been made during initialization we can switch between versions
+        // without reallocating
+        let fft_plan = &mut self.local_state.plan_for_order.as_mut().unwrap()
+            [self.params.global.window_size_order.value() as usize - MIN_WINDOW_ORDER];
+
+        // The overlap gain compensation is based on a squared Hann window, which will sum perfectly
+        // at four times overlap or higher. We'll apply a regular Hann window before the analysis
+        // and after the synthesis.
+        let gain_compensation: f32 =
+            ((overlap_times as f32 / 4.0) * 1.5).recip() / window_size as f32;
+
+        // We'll apply the square root of the total gain compensation at the DFT and the IDFT
+        // stages. That way the compressor threshold values make much more sense.
+        let input_gain = gain_compensation.sqrt();
+        let output_gain = gain_compensation.sqrt();
+
         self.local_state.stft
-            .process_overlap_add(buffer, 1, |_channel_idx, real_fft_buffer| {
-                // Bypass if there is no code
+            .process_overlap_add(buffer, overlap_times, |_channel_idx, real_fft_buffer| {
+                // Get the code value again in case it changed during the last process call
                 let Some(code_value) = self.plugin_state.code_value.lock().unwrap().clone() else {
                     return;
                 };
+
+                // We'll window the input with a Hann function to avoid spectral leakage. The input gain
+                // here also contains a compensation factor for the forward FFT to make the compressor
+                // thresholds make more sense.
+                let profile_0 = std::time::Instant::now();
+                for (sample, window_sample) in real_fft_buffer.iter_mut().zip(self.local_state.window_function.iter()) {
+                    *sample *= window_sample * input_gain;
+                }
 
                 // Forward FFT, `real_fft_buffer` already is already padded with zeroes, and the
                 // padding from the last iteration will have already been added back to the start of
                 // the buffer
                 let profile_1 = std::time::Instant::now();
-                self.local_state.r2c_plan
+                fft_plan.r2c_plan
                     .process_with_scratch(real_fft_buffer, &mut self.local_state.complex_fft_buffer, &mut [])
                     .unwrap();
 
@@ -192,26 +327,36 @@ impl Plugin for DuskPhantom {
                     };
                     let old_norm = complex.norm();
                     if old_norm == 0.0 {
-                        *complex = Complex32::new(norm, 0.0) * GAIN_COMPENSATION;
+                        *complex = Complex32::new(norm, 0.0);
                     } else {
-                        *complex *= norm / old_norm * GAIN_COMPENSATION;
+                        *complex *= norm / old_norm;
                     }
                 }
 
                 // Inverse FFT back into the scratch buffer. This will be added to a ring buffer
                 // which gets written back to the host at a one block delay.
                 let profile_4 = std::time::Instant::now();
-                self.local_state.c2r_plan
+                fft_plan.c2r_plan
                     .process_with_scratch(&mut self.local_state.complex_fft_buffer, real_fft_buffer, &mut [])
                     .unwrap();
 
+                // Apply the window function once more to reduce time domain aliasing. The gain
+                // compensation compensates for the squared Hann window that would be applied if we
+                // didn't do any processing at all as well as the FFT+IFFT itself.
+                let profile_5 = std::time::Instant::now();
+                for (sample, window_sample) in real_fft_buffer.iter_mut().zip(self.local_state.window_function.iter()) {
+                    *sample *= window_sample * output_gain;
+                }
+
                 // Store profiling result
                 let profile = format!(
-                    "Profile: {} ns, {} ns, {} ns, {} ns",
+                    "Profile: {} ns, {} ns, {} ns, {} ns, {} ns, {} ns",
+                    profile_0.elapsed().as_nanos(),
                     profile_1.elapsed().as_nanos(),
                     profile_2.elapsed().as_nanos(),
                     profile_3.elapsed().as_nanos(),
                     profile_4.elapsed().as_nanos(),
+                    profile_5.elapsed().as_nanos(),
                 );
                 *self.plugin_state.profiler.lock().unwrap() = profile;
 
