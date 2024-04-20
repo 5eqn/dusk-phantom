@@ -30,6 +30,7 @@ serde = "1.0.198"
 lalrpop-util = { version = "0.20.2", features = ["lexer", "unicode"] }
 hexf-parse = "0.2.1"
 realfft = "3.3.0"
+rand = "0.8.5"
 
 [profile.release]
 lto = "thin"
@@ -39,3 +40,10 @@ strip = "symbols"
 inherits = "release"
 debug = true
 strip = "none"
+
+[dev-dependencies]
+criterion = "0.3.0"
+
+[[bench]]
+name = "eval"
+harness = false

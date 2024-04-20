@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 mod constant;
 mod editor;
-mod lang;
+pub mod lang;
 mod assets;
 
 /// This is mostly identical to the gain example, minus some fluff, and with a GUI.
