@@ -18,9 +18,6 @@ pub struct DuskPhantom {
 }
 
 struct LocalState {
-    /// Needed to normalize the peak meter's response based on the sample rate.
-    peak_meter_decay_weight: f32,
-
     /// The algorithm for the FFT operation.
     r2c_plan: Arc<dyn RealToComplex<f32>>,
 
@@ -62,7 +59,6 @@ impl Default for DuskPhantom {
         Self {
             params: PluginParams::default().into(),
             local_state: LocalState {
-                peak_meter_decay_weight: 1.0,
                 stft: util::StftHelper::new(2, WINDOW_SIZE, FFT_WINDOW_SIZE - WINDOW_SIZE),
                 r2c_plan,
                 c2r_plan,
@@ -128,15 +124,9 @@ impl Plugin for DuskPhantom {
     fn initialize(
         &mut self,
         _audio_io_layout: &AudioIOLayout,
-        buffer_config: &BufferConfig,
+        _buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
-        // After `PEAK_METER_DECAY_MS` milliseconds of pure silence, the peak meter's value should
-        // have dropped by 12 dB
-        self.local_state.peak_meter_decay_weight = 0.25f64
-            .powf((buffer_config.sample_rate as f64 * PEAK_METER_DECAY_MS / 1000.0).recip())
-            as f32;
-
         // Init code state
         let (msg, code) = match run(&self.params.code.lock().unwrap()) {
             Ok(val) => (format!("Compilation success: {}", val.pretty_term()), Some(val)),
