@@ -255,7 +255,7 @@ impl Plugin for DuskPhantom {
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
         // Bypass if there is no code
-        let Some(_) = self.plugin_state.code_value.lock().unwrap().clone() else {
+        if self.plugin_state.code_value.lock().unwrap().is_none() {
             return ProcessStatus::Normal;
         };
 
@@ -287,6 +287,7 @@ impl Plugin for DuskPhantom {
         self.local_state.stft
             .process_overlap_add(buffer, overlap_times, |_channel_idx, real_fft_buffer| {
                 // Get the code value again in case it changed during the last process call
+                let profile_0 = std::time::Instant::now();
                 let Some(code_value) = self.plugin_state.code_value.lock().unwrap().clone() else {
                     return;
                 };
@@ -294,7 +295,6 @@ impl Plugin for DuskPhantom {
                 // We'll window the input with a Hann function to avoid spectral leakage. The input gain
                 // here also contains a compensation factor for the forward FFT to make the compressor
                 // thresholds make more sense.
-                let profile_0 = std::time::Instant::now();
                 for (sample, window_sample) in real_fft_buffer.iter_mut().zip(self.local_state.window_function.iter()) {
                     *sample *= window_sample * input_gain;
                 }
@@ -318,11 +318,17 @@ impl Plugin for DuskPhantom {
                     .collect::<Vec<_>>();
                 let norms = norms_vec
                     .as_slice();
+
+                // Apply code value
+                let profile_3 = std::time::Instant::now();
                 let mut applied_value = code_value.apply(norms.into());
+
+                // Collect result as array
+                let profile_4 = std::time::Instant::now();
                 let result = applied_value.collect(0..len);
 
                 // Apply new magnitudes
-                let profile_3 = std::time::Instant::now();
+                let profile_5 = std::time::Instant::now();
                 for (val, complex) in result.into_iter().zip(&mut self.local_state.complex_fft_buffer) {
                     let norm = match val {
                         Value::Float(f) => f,
@@ -338,7 +344,7 @@ impl Plugin for DuskPhantom {
 
                 // Inverse FFT back into the scratch buffer. This will be added to a ring buffer
                 // which gets written back to the host at a one block delay.
-                let profile_4 = std::time::Instant::now();
+                let profile_6 = std::time::Instant::now();
                 fft_plan.c2r_plan
                     .process_with_scratch(&mut self.local_state.complex_fft_buffer, real_fft_buffer, &mut [])
                     .unwrap();
@@ -346,20 +352,22 @@ impl Plugin for DuskPhantom {
                 // Apply the window function once more to reduce time domain aliasing. The gain
                 // compensation compensates for the squared Hann window that would be applied if we
                 // didn't do any processing at all as well as the FFT+IFFT itself.
-                let profile_5 = std::time::Instant::now();
+                let profile_7 = std::time::Instant::now();
                 for (sample, window_sample) in real_fft_buffer.iter_mut().zip(self.local_state.window_function.iter()) {
                     *sample *= window_sample * output_gain;
                 }
 
                 // Store profiling result
                 let profile = format!(
-                    "Profile: {} ns, {} ns, {} ns, {} ns, {} ns, {} ns",
-                    profile_0.elapsed().as_nanos(),
-                    profile_1.elapsed().as_nanos(),
-                    profile_2.elapsed().as_nanos(),
-                    profile_3.elapsed().as_nanos(),
-                    profile_4.elapsed().as_nanos(),
-                    profile_5.elapsed().as_nanos(),
+                    "Profile: {} us, {} us, {} us, {} us, {} us, {} us, {} us, {} us",
+                    profile_0.elapsed().as_micros(),
+                    profile_1.elapsed().as_micros(),
+                    profile_2.elapsed().as_micros(),
+                    profile_3.elapsed().as_micros(),
+                    profile_4.elapsed().as_micros(),
+                    profile_5.elapsed().as_micros(),
+                    profile_6.elapsed().as_micros(),
+                    profile_7.elapsed().as_micros(),
                 );
                 *self.plugin_state.profiler.lock().unwrap() = profile;
 

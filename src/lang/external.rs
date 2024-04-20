@@ -29,6 +29,18 @@ impl<'a> Extern<'a> {
                     }
                 }
             }
+            Value::Int(i) => {
+                match self {
+                    Extern::Idx(values) => {
+                        let i = i as usize;
+                        if i >= values.len() {
+                            Value::Float(0.0)
+                        } else {
+                            Value::Float(values[i])
+                        }
+                    }
+                }
+            }
             _ => panic!("{} is not a float", arg),
         }
     }
@@ -39,6 +51,18 @@ impl<'a> Extern<'a> {
                 match self {
                     Extern::Idx(values) => {
                         let i = f as usize;
+                        if i >= values.len() {
+                            Value::Float(0.0)
+                        } else {
+                            Value::Float(values[i])
+                        }
+                    }
+                }
+            }
+            Value::Int(i) => {
+                match self {
+                    Extern::Idx(values) => {
+                        let i = i as usize;
                         if i >= values.len() {
                             Value::Float(0.0)
                         } else {
