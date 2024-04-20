@@ -5,6 +5,13 @@ use std::fmt::Display;
 pub struct Closure<'a>(pub Box<Term>, pub Env<'a>, pub String);
 
 impl<'a> Closure<'a> {
+    pub fn ref_apply(&mut self, arg: Value<'a>) -> Value<'a> {
+        self.1.push(arg);
+        let result = ref_eval(*self.0.clone(), &mut self.1);
+        self.1.pop();
+        result
+    }
+
     pub fn apply(self, arg: Value<'a>) -> Value<'a> {
         let mut env = self.1;
         env.push(arg);
@@ -39,11 +46,11 @@ pub enum Value<'a> {
 }
 
 impl<'a> Value<'a> {
-    pub fn ref_apply(&self, arg: Value<'a>) -> Value<'a> {
-        match &self {
-            Value::Func(_, closure) => closure.clone().apply(arg),
-            Value::Lib(l) => l.clone().apply(arg),
-            Value::Extern(e) => e.clone().apply(arg),
+    pub fn ref_apply(&mut self, arg: Value<'a>) -> Value<'a> {
+        match self {
+            Value::Func(_, closure) => closure.ref_apply(arg),
+            Value::Lib(l) => l.ref_apply(arg),
+            Value::Extern(e) => e.ref_apply(arg),
             Value::Apply(func, args) => {
                 let mut args = args.clone();
                 args.push(arg);
@@ -66,10 +73,12 @@ impl<'a> Value<'a> {
         }
     }
 
-    pub fn collect(self, range: impl Iterator<Item = usize>) -> Vec<Value<'a>> {
-        range
-            .map(move |i| self.clone().apply(Value::Float(i as f32)))
-            .collect()
+    pub fn collect(&mut self, range: impl Iterator<Item = usize>) -> Vec<Value<'a>> {
+        let mut values = Vec::new();
+        for i in range {
+            values.push(self.ref_apply(Value::Float(i as f32)));
+        }
+        values
     }
 }
 

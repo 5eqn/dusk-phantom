@@ -318,7 +318,8 @@ impl Plugin for DuskPhantom {
                     .collect::<Vec<_>>();
                 let norms = norms_vec
                     .as_slice();
-                let result = code_value.apply(norms.into()).collect(0..len);
+                let mut applied_value = code_value.apply(norms.into());
+                let result = applied_value.collect(0..len);
 
                 // Apply new magnitudes
                 let profile_3 = std::time::Instant::now();
