@@ -12,14 +12,36 @@ For more info, check `Makefile`.
 
 ## Syntax
 
+Low pass:
+
 ```dp
 let lp: Float -> Float -> Float = (l: Float) => (i: Float) => 
   if i < l then 1 else 0 in
-(f: Float -> Float) => (i: Float) => f(i) * lp(200)(i)
+(f: Float -> Float) => (i: Float) => f(i) * lp(10)(i)
 ```
 
+Band pass:
+
 ```dp
-(norm: Float -> Float) => (freq: Float) => norm(freq * 2)
+let bp: Float -> Float -> Float -> Float = 
+  (l: Float) => 
+  (r: Float) =>
+  (i: Float) => 
+  if i < l then 0 else 
+  if i > r then 0 else 1 in
+(f: Float -> Float) => (i: Float) => f(i) * bp(25)(50)(i)
+```
+
+Pitcher:
+
+```dp
+(f: Float -> Float) => (i: Float) => f(i * 2)
+```
+
+Noise:
+
+```dp
+(f: Float -> Float) => (i: Float) => 20 / (i + 50)
 ```
 
 ```dp
