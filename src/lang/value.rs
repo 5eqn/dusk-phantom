@@ -5,7 +5,7 @@ use std::fmt::Display;
 pub struct Closure<'a>(pub Box<Term>, pub Env<'a>, pub String);
 
 impl<'a> Closure<'a> {
-    pub fn ref_apply(&mut self, arg: Value<'a>) -> Value<'a> {
+    pub fn apply_ref(&mut self, arg: Value<'a>) -> Value<'a> {
         self.1.push(arg);
         let result = eval_ref(&mut self.0, &mut self.1);
         self.1.pop();
@@ -49,9 +49,9 @@ pub enum Value<'a> {
 impl<'a> Value<'a> {
     pub fn apply_ref(&mut self, arg: Value<'a>) -> Value<'a> {
         match self {
-            Value::Func(_, closure) => closure.ref_apply(arg),
-            Value::Lib(l) => l.ref_apply(arg),
-            Value::Extern(e) => e.ref_apply(arg),
+            Value::Func(_, closure) => closure.apply_ref(arg),
+            Value::Lib(l) => l.apply(arg),
+            Value::Extern(e) => e.apply(arg),
             Value::Apply(func, args) => {
                 let mut args = args.clone();
                 args.push(arg);
