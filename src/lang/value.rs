@@ -41,9 +41,11 @@ pub enum Value<'a> {
     Int(i32),
     Bool(bool),
     Lib(Lib),
+    Var(Level),
     Extern(Extern<'a>),
     Apply(Box<Value<'a>>, Vec<Value<'a>>),
     Func(Box<ValueType>, Closure<'a>),
+    Alt(Box<Value<'a>>, Box<Value<'a>>, Box<Value<'a>>),
 }
 
 impl<'a> Value<'a> {
@@ -108,6 +110,7 @@ impl<'a> Display for Value<'a> {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
             Value::Int(x) => write!(f, "Value::Int({})", x),
             Value::Bool(x) => write!(f, "Value::Bool({})", x),
+            Value::Var(l) => write!(f, "Value::Var({})", l),
             Value::Lib(_) => write!(f, "Value::Lib(_)"),
             Value::Extern(e) => write!(f, "Value::Extern({})", e),
             Value::Apply(func, args) => write!(
@@ -120,6 +123,13 @@ impl<'a> Display for Value<'a> {
                     .join(", "),
             ),
             Value::Func(param, body) => write!(f, "Value::Func({}.into(), {})", param, body),
+            Value::Alt(cond, then, else_) => write!(
+                f,
+                "Value::Alt({}.into(), {}.into(), {}.into())",
+                cond,
+                then,
+                else_
+            ),
         }
     }
 }
@@ -130,6 +140,7 @@ impl<'a> Value<'a> {
             Value::Float(x) => format!("{:.3}", x),
             Value::Int(x) => x.to_string(),
             Value::Bool(x) => x.to_string(),
+            Value::Var(l) => format!("var_{}", l),
             Value::Lib(_) => "_".into(),
             Value::Extern(e) => e.to_string(),
             Value::Apply(func, args) => format!(
@@ -145,6 +156,12 @@ impl<'a> Value<'a> {
                 closure.2,
                 param.pretty_term(),
                 closure.0.pretty_term(),
+            ),
+            Value::Alt(cond, then, else_) => format!(
+                "if {} then {} else {}",
+                cond.pretty_term(),
+                then.pretty_term(),
+                else_.pretty_term(),
             ),
         }
     }

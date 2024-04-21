@@ -1,5 +1,6 @@
 pub mod elaborate;
 pub mod eval;
+pub mod quote;
 pub mod library;
 pub mod external;
 pub mod parse;
@@ -14,6 +15,7 @@ use elaborate::*;
 use eval::*;
 pub use library::*;
 use parse::*;
+pub use quote::*;
 pub use syntax::*;
 pub use term::*;
 pub use value::*;
@@ -40,5 +42,6 @@ pub fn run<'a>(code: &str) -> Result<Value<'a>, RunError> {
     let ctx = HashMap::new();
     let syntax = parse(code).map_err(|e| format!("Parse error: {}", e))?;
     let term = check(syntax, ctx, target_type(), 0).map_err(|e| format!("Elaborate error: {}", e))?;
-    Ok(eval(term, &mut env))
+    let simp_term = simp(term);
+    Ok(eval(simp_term, &mut env))
 }

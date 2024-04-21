@@ -119,7 +119,7 @@ impl Lib {
                     Lib::GeI(x) => Value::Bool(*x >= i),
                 }
             }
-            _ => panic!("{} is not a float", arg),
+            other => Value::Apply(Value::Lib(self.clone()).into(), vec![other]),
         }
     }
 }
