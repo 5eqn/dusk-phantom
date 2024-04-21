@@ -59,7 +59,11 @@ pub fn eval<'a>(term: Term, env: &mut Env<'a>) -> Value<'a> {
         Term::Alt(cond, then, else_) => match eval(*cond, env) {
             Value::Bool(true) => eval(*then, env),
             Value::Bool(false) => eval(*else_, env),
-            other => panic!("{} is not a boolean", other),
+            other => {
+                let then = eval(*then, env);
+                let else_ = eval(*else_, env);
+                Value::Alt(other.into(), then.into(), else_.into())
+            }
         },
     }
 }
@@ -88,7 +92,11 @@ pub fn eval_closure(term: Term, mut env: Env) -> Value {
         Term::Alt(cond, then, else_) => match eval(*cond, &mut env) {
             Value::Bool(true) => eval_closure(*then, env),
             Value::Bool(false) => eval_closure(*else_, env),
-            other => panic!("{} is not a boolean", other),
+            other => {
+                let then = eval(*then, &mut env);
+                let else_ = eval_closure(*else_, env);
+                Value::Alt(other.into(), then.into(), else_.into())
+            }
         },
     }
 }

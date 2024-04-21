@@ -13,18 +13,6 @@ fn eval_benchmark(c: &mut Criterion) {
     };
     let data = (norms, code_value);
 
-    c.bench_with_input(BenchmarkId::new("clone", "1024"), &data, |b, (_, c)| {
-        b.iter(|| {
-            let _ = c.clone();
-        })
-    });
-
-    c.bench_with_input(BenchmarkId::new("prepare", "1024"), &data, |b, (n, c)| {
-        b.iter(|| {
-            let _ = c.clone().apply((*n).into());
-        })
-    });
-
     c.bench_with_input(BenchmarkId::new("mutate", "1024"), &data, |b, (n, c)| {
         b.iter(|| {
             let _ = c.clone().apply((*n).into()).collect(0..len);
