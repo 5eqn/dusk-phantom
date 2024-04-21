@@ -15,37 +15,7 @@ impl<'a> Display for Extern<'a> {
 }
 
 impl<'a> Extern<'a> {
-    pub fn ref_apply(&self, arg: Value<'a>) -> Value<'a> {
-        match arg {
-            Value::Float(f) => {
-                match self {
-                    Extern::Idx(values) => {
-                        let i = f as usize;
-                        if i >= values.len() {
-                            Value::Float(0.0)
-                        } else {
-                            Value::Float(values[i])
-                        }
-                    }
-                }
-            }
-            Value::Int(i) => {
-                match self {
-                    Extern::Idx(values) => {
-                        let i = i as usize;
-                        if i >= values.len() {
-                            Value::Float(0.0)
-                        } else {
-                            Value::Float(values[i])
-                        }
-                    }
-                }
-            }
-            _ => panic!("{} is not a float", arg),
-        }
-    }
-
-    pub fn apply(self, arg: Value) -> Value {
+    pub fn apply(&self, arg: Value<'a>) -> Value<'a> {
         match arg {
             Value::Float(f) => {
                 match self {

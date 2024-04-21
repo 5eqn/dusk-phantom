@@ -61,7 +61,7 @@ impl Display for Lib {
 }
 
 impl Lib {
-    pub fn ref_apply<'a>(&self, arg: Value<'a>) -> Value<'a> {
+    pub fn apply<'a>(&self, arg: Value<'a>) -> Value<'a> {
         match arg {
             Value::Float(f) => {
                 match self {
@@ -117,68 +117,6 @@ impl Lib {
                     Lib::LeI(x) => Value::Bool(*x <= i),
                     Lib::GtI(x) => Value::Bool(*x > i),
                     Lib::GeI(x) => Value::Bool(*x >= i),
-                }
-            }
-            _ => panic!("{} is not a float", arg),
-        }
-    }
-
-    pub fn apply(self, arg: Value) -> Value {
-        match arg {
-            Value::Float(f) => {
-                match self {
-                    Lib::Add => Value::Lib(Lib::Add1(f)),
-                    Lib::Sub => Value::Lib(Lib::Sub1(f)),
-                    Lib::Mul => Value::Lib(Lib::Mul1(f)),
-                    Lib::Div => Value::Lib(Lib::Div1(f)),
-                    Lib::Lt => Value::Lib(Lib::Lt1(f)),
-                    Lib::Le => Value::Lib(Lib::Le1(f)),
-                    Lib::Gt => Value::Lib(Lib::Gt1(f)),
-                    Lib::Ge => Value::Lib(Lib::Ge1(f)),
-                    Lib::Add1(x) => Value::Float(x + f),
-                    Lib::Sub1(x) => Value::Float(x - f),
-                    Lib::Mul1(x) => Value::Float(x * f),
-                    Lib::Div1(x) => Value::Float(x / f),
-                    Lib::Lt1(x) => Value::Bool(x < f),
-                    Lib::Le1(x) => Value::Bool(x <= f),
-                    Lib::Gt1(x) => Value::Bool(x > f),
-                    Lib::Ge1(x) => Value::Bool(x >= f),
-                    Lib::AddI(x) => Value::Float(x as f32 + f),
-                    Lib::SubI(x) => Value::Float(x as f32 - f),
-                    Lib::MulI(x) => Value::Float(x as f32 * f),
-                    Lib::DivI(x) => Value::Float(x as f32 / f),
-                    Lib::LtI(x) => Value::Bool((x as f32) < f),
-                    Lib::LeI(x) => Value::Bool(x as f32 <= f),
-                    Lib::GtI(x) => Value::Bool(x as f32 > f),
-                    Lib::GeI(x) => Value::Bool(x as f32 >= f),
-                }
-            }
-            Value::Int(i) => {
-                match self {
-                    Lib::Add => Value::Lib(Lib::AddI(i)),
-                    Lib::Sub => Value::Lib(Lib::SubI(i)),
-                    Lib::Mul => Value::Lib(Lib::MulI(i)),
-                    Lib::Div => Value::Lib(Lib::DivI(i)),
-                    Lib::Lt => Value::Lib(Lib::LtI(i)),
-                    Lib::Le => Value::Lib(Lib::LeI(i)),
-                    Lib::Gt => Value::Lib(Lib::GtI(i)),
-                    Lib::Ge => Value::Lib(Lib::GeI(i)),
-                    Lib::Add1(x) => Value::Float(x + i as f32),
-                    Lib::Sub1(x) => Value::Float(x - i as f32),
-                    Lib::Mul1(x) => Value::Float(x * i as f32),
-                    Lib::Div1(x) => Value::Float(x / i as f32),
-                    Lib::Lt1(x) => Value::Bool(x < i as f32),
-                    Lib::Le1(x) => Value::Bool(x <= i as f32),
-                    Lib::Gt1(x) => Value::Bool(x > i as f32),
-                    Lib::Ge1(x) => Value::Bool(x >= i as f32),
-                    Lib::AddI(x) => Value::Int(x + i),
-                    Lib::SubI(x) => Value::Int(x - i),
-                    Lib::MulI(x) => Value::Int(x * i),
-                    Lib::DivI(x) => Value::Int(x / i),
-                    Lib::LtI(x) => Value::Bool(x < i),
-                    Lib::LeI(x) => Value::Bool(x <= i),
-                    Lib::GtI(x) => Value::Bool(x > i),
-                    Lib::GeI(x) => Value::Bool(x >= i),
                 }
             }
             _ => panic!("{} is not a float", arg),
