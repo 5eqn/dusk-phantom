@@ -7,6 +7,6 @@ fn main() {
         panic!("failed to run code");
     };
     for _ in 0..2000 {
-        let _ = code_value.ref_apply(norms.into()).collect(0..len);
+        let _ = code_value.apply_ref(norms.into()).collect(0..len);
     }
 }
