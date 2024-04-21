@@ -7,7 +7,7 @@ pub struct Closure<'a>(pub Box<Term>, pub Env<'a>, pub String);
 impl<'a> Closure<'a> {
     pub fn ref_apply(&mut self, arg: Value<'a>) -> Value<'a> {
         self.1.push(arg);
-        let result = ref_eval(&mut self.0, &mut self.1);
+        let result = eval_ref(&mut self.0, &mut self.1);
         self.1.pop();
         result
     }
@@ -15,7 +15,7 @@ impl<'a> Closure<'a> {
     pub fn apply(self, arg: Value<'a>) -> Value<'a> {
         let mut env = self.1;
         env.push(arg);
-        eval(*self.0, env)
+        eval_closure(*self.0, env)
     }
 }
 
@@ -47,7 +47,7 @@ pub enum Value<'a> {
 }
 
 impl<'a> Value<'a> {
-    pub fn ref_apply(&mut self, arg: Value<'a>) -> Value<'a> {
+    pub fn apply_ref(&mut self, arg: Value<'a>) -> Value<'a> {
         match self {
             Value::Func(_, closure) => closure.ref_apply(arg),
             Value::Lib(l) => l.ref_apply(arg),
@@ -77,7 +77,7 @@ impl<'a> Value<'a> {
     pub fn collect(&mut self, range: impl Iterator<Item = usize>) -> Vec<Value<'a>> {
         let mut values = Vec::new();
         for i in range {
-            values.push(self.ref_apply(Value::Int(i as i32)));
+            values.push(self.apply_ref(Value::Int(i as i32)));
         }
         values
     }

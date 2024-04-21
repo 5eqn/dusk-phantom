@@ -40,5 +40,5 @@ pub fn run<'a>(code: &str) -> Result<Value<'a>, RunError> {
     let ctx = HashMap::new();
     let syntax = parse(code).map_err(|e| format!("Parse error: {}", e))?;
     let term = check(syntax, ctx, target_type(), 0).map_err(|e| format!("Elaborate error: {}", e))?;
-    Ok(ref_env_eval(term, &mut env))
+    Ok(eval(term, &mut env))
 }
