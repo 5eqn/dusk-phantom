@@ -147,11 +147,13 @@ impl Lib {
 impl From<Lib> for ValueType {
     fn from(lib: Lib) -> Self {
         match lib {
-            Lib::Add | Lib::Sub | Lib::Mul | Lib::Div => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)))),
+            Lib::Add | Lib::Sub | Lib::Mul | Lib::Div | Lib::Mod => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)))),
             Lib::Lt | Lib::Le | Lib::Gt | Lib::Ge => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)))),
-            Lib::Add1(_) | Lib::Sub1(_) | Lib::Mul1(_) | Lib::Div1(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
+            Lib::Add1(_) | Lib::Sub1(_) | Lib::Mul1(_) | Lib::Div1(_) | Lib::Mod1(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
             Lib::Lt1(_) | Lib::Le1(_) | Lib::Gt1(_) | Lib::Ge1(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)),
-            _ => panic!("{} is not implemented", lib),  
+            Lib::AddI(_) | Lib::SubI(_) | Lib::MulI(_) | Lib::DivI(_) | Lib::ModI(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
+            Lib::LtI(_) | Lib::LeI(_) | Lib::GtI(_) | Lib::GeI(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)),
+            Lib::Sin | Lib::Cos => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
         }
     }
 }
