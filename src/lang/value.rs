@@ -1,41 +1,73 @@
 use super::*;
-use std::{fmt::Display, sync::Arc};
+use std::fmt::Display;
 
 #[derive(Clone, PartialEq)]
-pub struct Closure(pub Box<Term>, pub Env, pub String);
+pub struct Closure<'a>(pub Box<Term>, pub Env<'a>, pub String);
 
-impl Closure {
-    pub fn apply(self, arg: Value) -> Value {
+impl<'a> Closure<'a> {
+    pub fn apply_ref(&mut self, arg: Value<'a>) -> Value<'a> {
+        self.1.push(arg);
+        let result = eval_ref(&mut self.0, &mut self.1);
+        self.1.pop();
+        result
+    }
+
+    pub fn apply(self, arg: Value<'a>) -> Value<'a> {
         let mut env = self.1;
         env.push(arg);
-        eval(*self.0, &env)
+        eval_closure(*self.0, env)
     }
 }
 
-impl Display for Closure {
+impl<'a> Display for Closure<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Closure({}.into(), vec![{}], {}.into())", 
-            self.0, 
-            self.1.iter().map(|v| format!("{}.into()", v)).collect::<Vec<_>>().join(", "),
+        write!(
+            f,
+            "Closure({}.into(), vec![{}], {}.into())",
+            self.0,
+            self.1
+                .iter()
+                .map(|v| format!("{}.into()", v))
+                .collect::<Vec<_>>()
+                .join(", "),
             self.2
         )
     }
 }
 
 #[derive(Clone)]
-pub enum Value {
+pub enum Value<'a> {
     Float(f32),
+    Int(i32),
     Bool(bool),
-    Extern(Arc<V2V>),
-    Apply(Box<Value>, Vec<Value>),
-    Func(Box<ValueType>, Closure),
+    Lib(Lib),
+    Var(Level),
+    Extern(Extern<'a>),
+    Apply(Box<Value<'a>>, Vec<Value<'a>>),
+    Func(Box<ValueType>, Closure<'a>),
+    Alt(Box<Value<'a>>, Box<Value<'a>>, Box<Value<'a>>),
 }
 
-impl Value {
-    pub fn apply(self, arg: Value) -> Value {
+impl<'a> Value<'a> {
+    pub fn apply_ref(&mut self, arg: Value<'a>) -> Value<'a> {
+        match self {
+            Value::Func(_, closure) => closure.apply_ref(arg),
+            Value::Lib(l) => l.apply(arg),
+            Value::Extern(e) => e.apply(arg),
+            Value::Apply(func, args) => {
+                let mut args = args.clone();
+                args.push(arg);
+                Value::Apply(func.clone(), args)
+            }
+            other => Value::Apply((*other).clone().into(), vec![arg]),
+        }
+    }
+
+    pub fn apply(self, arg: Value<'a>) -> Value<'a> {
         match self {
             Value::Func(_, closure) => closure.apply(arg),
-            Value::Extern(f) => f(arg),
+            Value::Lib(l) => l.apply(arg),
+            Value::Extern(e) => e.apply(arg),
             Value::Apply(func, mut args) => {
                 args.push(arg);
                 Value::Apply(func, args)
@@ -44,79 +76,26 @@ impl Value {
         }
     }
 
-    pub fn collect(self, range: impl Iterator<Item = usize>) -> Vec<Value> {
-        range.map(move |i| self.clone().apply(Value::Float(i as f32))).collect()
+    pub fn collect(&mut self, range: impl Iterator<Item = usize>) -> Vec<Value<'a>> {
+        let mut values = Vec::new();
+        for i in range {
+            values.push(self.apply_ref(Value::Int(i as i32)));
+        }
+        values
     }
 }
 
-impl From<Vec<f32>> for Value {
-    fn from(values: Vec<f32>) -> Self {
-        let indexer: Arc<F2F> = Arc::new(move |i| {
-            let i: usize = i as usize;
-            if i >= values.len() {
-                0.0
-            } else {
-                values[i]
-            }
-        });
-        indexer.into()
+impl<'a> From<&'a [f32]> for Value<'a> {
+    fn from(values: &'a [f32]) -> Self {
+        Value::Extern(Extern::Idx(values))
     }
 }
 
-pub type V2V = dyn Fn(Value) -> Value + Send + Sync;
-pub type F2F = dyn Fn(f32) -> f32 + Send + Sync;
-pub type F2B = dyn Fn(f32) -> bool + Send + Sync;
-pub type FF2F = dyn Fn(f32, f32) -> f32 + Send + Sync;
-pub type FF2B = dyn Fn(f32, f32) -> bool + Send + Sync;
-
-impl From<Arc<F2F>> for Value {
-    fn from(f: Arc<F2F>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Float(x) => Value::Float(f(x)),
-            _ => panic!("Expected float"),
-        }))
-    }
-}
-
-impl From<Arc<F2B>> for Value {
-    fn from(f: Arc<F2B>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Float(x) => Value::Bool(f(x)),
-            _ => panic!("Expected float"),
-        }))
-    }
-}
-
-impl From<Arc<FF2F>> for Value {
-    fn from(f: Arc<FF2F>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Float(x) => {
-                let f: Arc<FF2F> = f.clone();
-                let res: Arc<F2F> = Arc::new(move |y| f(x, y));
-                res.into()
-            }
-            _ => panic!("Expected float"),
-        }))
-    }
-}
-
-impl From<Arc<FF2B>> for Value {
-    fn from(f: Arc<FF2B>) -> Self {
-        Value::Extern(Arc::new(move |arg| match arg {
-            Value::Float(x) => {
-                let f: Arc<FF2B> = f.clone();
-                let res: Arc<F2B> = Arc::new(move |y| f(x, y));
-                res.into()
-            }
-            _ => panic!("Expected float"),
-        }))
-    }
-}
-
-impl PartialEq for Value {
+impl<'a> PartialEq for Value<'a> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Value::Float(x), Value::Float(y)) => x == y,
+            (Value::Int(x), Value::Int(y)) => x == y,
             (Value::Bool(x), Value::Bool(y)) => x == y,
             (Value::Apply(f1, a1), Value::Apply(f2, a2)) => f1 == f2 && a1 == a2,
             (Value::Func(p1, c1), Value::Func(p2, c2)) => p1 == p2 && c1 == c2,
@@ -125,12 +104,15 @@ impl PartialEq for Value {
     }
 }
 
-impl Display for Value {
+impl<'a> Display for Value<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
+            Value::Int(x) => write!(f, "Value::Int({})", x),
             Value::Bool(x) => write!(f, "Value::Bool({})", x),
-            Value::Extern(_) => write!(f, "Value::Extern(_)"),
+            Value::Var(l) => write!(f, "Value::Var({})", l),
+            Value::Lib(_) => write!(f, "Value::Lib(_)"),
+            Value::Extern(e) => write!(f, "Value::Extern({})", e),
             Value::Apply(func, args) => write!(
                 f,
                 "Value::Apply({}.into(), vec![{}])",
@@ -141,16 +123,26 @@ impl Display for Value {
                     .join(", "),
             ),
             Value::Func(param, body) => write!(f, "Value::Func({}.into(), {})", param, body),
+            Value::Alt(cond, then, else_) => write!(
+                f,
+                "Value::Alt({}.into(), {}.into(), {}.into())",
+                cond,
+                then,
+                else_
+            ),
         }
     }
 }
 
-impl Value {
+impl<'a> Value<'a> {
     pub fn pretty_term(&self) -> String {
         match self {
             Value::Float(x) => format!("{:.3}", x),
+            Value::Int(x) => x.to_string(),
             Value::Bool(x) => x.to_string(),
-            Value::Extern(_) => "_".into(),
+            Value::Var(l) => format!("var_{}", l),
+            Value::Lib(_) => "_".into(),
+            Value::Extern(e) => e.to_string(),
             Value::Apply(func, args) => format!(
                 "{}({})",
                 func.pretty_atom(),
@@ -160,10 +152,16 @@ impl Value {
                     .join(", "),
             ),
             Value::Func(param, closure) => format!(
-                "({}: {}) => {}", 
-                closure.2, 
-                param.pretty_term(), 
+                "({}: {}) => {}",
+                closure.2,
+                param.pretty_term(),
                 closure.0.pretty_term(),
+            ),
+            Value::Alt(cond, then, else_) => format!(
+                "if {} then {} else {}",
+                cond.pretty_term(),
+                then.pretty_term(),
+                else_.pretty_term(),
             ),
         }
     }
@@ -175,3 +173,4 @@ impl Value {
         }
     }
 }
+

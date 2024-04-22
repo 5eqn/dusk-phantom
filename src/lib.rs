@@ -3,12 +3,12 @@ use lang::*;
 use nih_plug::prelude::*;
 use nih_plug_vizia::ViziaState;
 use realfft::{num_complex::Complex32, ComplexToReal, RealFftPlanner, RealToComplex};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 mod constant;
 mod editor;
-mod lang;
-mod assets;
+pub mod lang;
 
 /// This is mostly identical to the gain example, minus some fluff, and with a GUI.
 pub struct DuskPhantom {
@@ -24,7 +24,7 @@ struct LocalState {
 
     /// The output of our real->complex FFT.
     complex_fft_buffer: Vec<Complex32>,
-    
+
     /// An adapter that performs most of the overlap-add algorithm for us.
     stft: util::StftHelper,
 
@@ -45,7 +45,55 @@ struct PluginState {
     debug: Mutex<String>,
     profiler: Mutex<String>,
     message: Mutex<String>,
-    code_value: Mutex<Option<Value>>,
+    code_value: Mutex<Option<Value<'static>>>,
+}
+
+impl PluginState {
+    pub fn init_code(&self, code_cache: Arc<Mutex<String>>) {
+        // Read code from cache
+        let code_str = code_cache.lock().unwrap().clone();
+
+        // Compile code
+        self.compile_code(code_str)
+    }
+
+    pub fn update_code(&self, profile: i32, code_cache: Arc<Mutex<String>>) {
+        // Get file path
+        let path =
+            std::env::var("DUSK_PHANTOM_PATH").unwrap_or_else(|_| "/home/seqn/dft".to_string());
+        let file_path = PathBuf::from(&path).join(format!("{}.dft", profile));
+        let file_str = file_path.to_str().unwrap_or("unknown path").to_string();
+
+        // Read code from file
+        let code_str = match std::fs::read_to_string(file_path) {
+            Ok(code_str) => code_str,
+            Err(err) => {
+                return *self.message.lock().unwrap() =
+                    format!("Error reading from {}: {}", file_str, err);
+            }
+        };
+
+        // Store code to cache
+        *code_cache.lock().unwrap() = code_str.clone();
+
+        // Compile code
+        self.compile_code(code_str)
+    }
+
+    pub fn compile_code(&self, code_str: String) {
+        // Evaluate and simplify code as a function
+        let (msg, code) = match run(&code_str) {
+            Ok(val) => (
+                format!("Compilation success: {}", val.pretty_term()),
+                Some(val),
+            ),
+            Err(err) => (err, None),
+        };
+
+        // Put message and code in memory
+        *self.message.lock().unwrap() = msg;
+        *self.code_value.lock().unwrap() = code;
+    }
 }
 
 #[derive(Params)]
@@ -55,7 +103,7 @@ struct PluginParams {
     #[persist = "editor-state"]
     editor_state: Arc<ViziaState>,
 
-    /// The code to compile
+    /// Cached code
     #[persist = "code"]
     code: Arc<Mutex<String>>,
 
@@ -77,6 +125,10 @@ pub struct GlobalParams {
     /// prevent invalid inputs).
     #[id = "stft_overlap"]
     pub overlap_times_order: IntParam,
+
+    /// The profile to use.
+    #[id = "profile"]
+    pub profile: IntParam,
 }
 
 impl Default for DuskPhantom {
@@ -94,7 +146,8 @@ impl Default for DuskPhantom {
                 profiler: Mutex::new("".into()),
                 message: Mutex::new("".into()),
                 code_value: Mutex::new(None),
-            }.into(),
+            }
+            .into(),
         }
     }
 }
@@ -132,6 +185,7 @@ impl Default for GlobalParams {
             )
             .with_value_to_string(formatters::v2s_i32_power_of_two())
             .with_string_to_value(formatters::s2v_i32_power_of_two()),
+            profile: IntParam::new("Profile", 1, IntRange::Linear { min: 1, max: 16 }),
         }
     }
 }
@@ -153,7 +207,8 @@ impl DuskPhantom {
         self.local_state.stft.set_block_size(window_size);
         self.local_state.window_function.resize(window_size, 0.0);
         util::window::hann_in_place(&mut self.local_state.window_function);
-        self.local_state.complex_fft_buffer
+        self.local_state
+            .complex_fft_buffer
             .resize(window_size / 2 + 1, Complex32::default());
     }
 }
@@ -202,13 +257,8 @@ impl Plugin for DuskPhantom {
         _buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
-        // Init code state
-        let (msg, code) = match run(&self.params.code.lock().unwrap()) {
-            Ok(val) => (format!("Compilation success: {}", val.pretty_term()), Some(val)),
-            Err(err) => (err, None),
-        };
-        *self.plugin_state.message.lock().unwrap() = msg;
-        *self.plugin_state.code_value.lock().unwrap() = code;
+        // Initialize code
+        self.plugin_state.init_code(self.params.code.clone());
 
         // This plugin can accept a variable number of audio channels, so we need to resize
         // channel-dependent data structures accordingly
@@ -217,7 +267,8 @@ impl Plugin for DuskPhantom {
             .expect("Plugin does not have a main output")
             .get() as usize;
         if self.local_state.stft.num_channels() != num_output_channels {
-            self.local_state.stft = util::StftHelper::new(self.local_state.stft.num_channels(), MAX_WINDOW_SIZE, 0);
+            self.local_state.stft =
+                util::StftHelper::new(self.local_state.stft.num_channels(), MAX_WINDOW_SIZE, 0);
         }
 
         // Planning with RustFFT is very fast, but it will still allocate we we'll plan all of the
@@ -255,7 +306,7 @@ impl Plugin for DuskPhantom {
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
         // Bypass if there is no code
-        let Some(_) = self.plugin_state.code_value.lock().unwrap().clone() else {
+        if self.plugin_state.code_value.lock().unwrap().is_none() {
             return ProcessStatus::Normal;
         };
 
@@ -284,9 +335,12 @@ impl Plugin for DuskPhantom {
         let input_gain = gain_compensation.sqrt();
         let output_gain = gain_compensation.sqrt();
 
-        self.local_state.stft
-            .process_overlap_add(buffer, overlap_times, |_channel_idx, real_fft_buffer| {
+        self.local_state.stft.process_overlap_add(
+            buffer,
+            overlap_times,
+            |_channel_idx, real_fft_buffer| {
                 // Get the code value again in case it changed during the last process call
+                let profile_0 = std::time::Instant::now();
                 let Some(code_value) = self.plugin_state.code_value.lock().unwrap().clone() else {
                     return;
                 };
@@ -294,8 +348,10 @@ impl Plugin for DuskPhantom {
                 // We'll window the input with a Hann function to avoid spectral leakage. The input gain
                 // here also contains a compensation factor for the forward FFT to make the compressor
                 // thresholds make more sense.
-                let profile_0 = std::time::Instant::now();
-                for (sample, window_sample) in real_fft_buffer.iter_mut().zip(self.local_state.window_function.iter()) {
+                for (sample, window_sample) in real_fft_buffer
+                    .iter_mut()
+                    .zip(self.local_state.window_function.iter())
+                {
                     *sample *= window_sample * input_gain;
                 }
 
@@ -303,24 +359,40 @@ impl Plugin for DuskPhantom {
                 // padding from the last iteration will have already been added back to the start of
                 // the buffer
                 let profile_1 = std::time::Instant::now();
-                fft_plan.r2c_plan
-                    .process_with_scratch(real_fft_buffer, &mut self.local_state.complex_fft_buffer, &mut [])
+                fft_plan
+                    .r2c_plan
+                    .process_with_scratch(
+                        real_fft_buffer,
+                        &mut self.local_state.complex_fft_buffer,
+                        &mut [],
+                    )
                     .unwrap();
 
                 // Calculate new magnitudes
                 let profile_2 = std::time::Instant::now();
                 let len = self.local_state.complex_fft_buffer.len();
-                let norms: Vec<_> = self
+                let norms_vec = self
                     .local_state
                     .complex_fft_buffer
                     .iter()
                     .map(|c| c.norm())
-                    .collect();
-                let result = code_value.apply(norms.into()).collect(0..len);
+                    .collect::<Vec<_>>();
+                let norms = norms_vec.as_slice();
+
+                // Apply code value
+                let profile_3 = std::time::Instant::now();
+                let mut applied_value = code_value.apply(norms.into());
+
+                // Collect result as array
+                let profile_4 = std::time::Instant::now();
+                let result = applied_value.collect(0..len);
 
                 // Apply new magnitudes
-                let profile_3 = std::time::Instant::now();
-                for (val, complex) in result.into_iter().zip(&mut self.local_state.complex_fft_buffer) {
+                let profile_5 = std::time::Instant::now();
+                for (val, complex) in result
+                    .into_iter()
+                    .zip(&mut self.local_state.complex_fft_buffer)
+                {
                     let norm = match val {
                         Value::Float(f) => f,
                         _ => 0.0,
@@ -335,34 +407,45 @@ impl Plugin for DuskPhantom {
 
                 // Inverse FFT back into the scratch buffer. This will be added to a ring buffer
                 // which gets written back to the host at a one block delay.
-                let profile_4 = std::time::Instant::now();
-                fft_plan.c2r_plan
-                    .process_with_scratch(&mut self.local_state.complex_fft_buffer, real_fft_buffer, &mut [])
+                let profile_6 = std::time::Instant::now();
+                fft_plan
+                    .c2r_plan
+                    .process_with_scratch(
+                        &mut self.local_state.complex_fft_buffer,
+                        real_fft_buffer,
+                        &mut [],
+                    )
                     .unwrap();
 
                 // Apply the window function once more to reduce time domain aliasing. The gain
                 // compensation compensates for the squared Hann window that would be applied if we
                 // didn't do any processing at all as well as the FFT+IFFT itself.
-                let profile_5 = std::time::Instant::now();
-                for (sample, window_sample) in real_fft_buffer.iter_mut().zip(self.local_state.window_function.iter()) {
+                let profile_7 = std::time::Instant::now();
+                for (sample, window_sample) in real_fft_buffer
+                    .iter_mut()
+                    .zip(self.local_state.window_function.iter())
+                {
                     *sample *= window_sample * output_gain;
                 }
 
                 // Store profiling result
                 let profile = format!(
-                    "Profile: {} ns, {} ns, {} ns, {} ns, {} ns, {} ns",
-                    profile_0.elapsed().as_nanos(),
-                    profile_1.elapsed().as_nanos(),
-                    profile_2.elapsed().as_nanos(),
-                    profile_3.elapsed().as_nanos(),
-                    profile_4.elapsed().as_nanos(),
-                    profile_5.elapsed().as_nanos(),
+                    "Profile: {} us, {} us, {} us, {} us, {} us, {} us, {} us, {} us",
+                    profile_0.elapsed().as_micros(),
+                    profile_1.elapsed().as_micros(),
+                    profile_2.elapsed().as_micros(),
+                    profile_3.elapsed().as_micros(),
+                    profile_4.elapsed().as_micros(),
+                    profile_5.elapsed().as_micros(),
+                    profile_6.elapsed().as_micros(),
+                    profile_7.elapsed().as_micros(),
                 );
                 *self.plugin_state.profiler.lock().unwrap() = profile;
 
                 // Store debug result
                 *self.plugin_state.debug.lock().unwrap() = format!("complex_len = {}", len);
-            });
+            },
+        );
         ProcessStatus::Normal
     }
 }
