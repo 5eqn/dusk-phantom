@@ -41,6 +41,7 @@ AddExpr: Syntax = {
 MulExpr: Syntax = {
     <l: MulExpr> "*" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Mul).into(), l.into()).into(), r.into()),
     <l: MulExpr> "/" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Div).into(), l.into()).into(), r.into()),
+    <l: MulExpr> "%" <r: UnaryExpr> => Syntax::Apply(Syntax::Apply(Syntax::Lib(Lib::Mod).into(), l.into()).into(), r.into()),
     <l: UnaryExpr> => l,
 }
 
@@ -57,8 +58,16 @@ Apply: Syntax = {
 Atom: Syntax = {
     <n: Float> => Syntax::Float(n),
     <n: Bool> => Syntax::Bool(n),
+    <n: Lib> => Syntax::Lib(n),
     <i: Ident> => Syntax::Var(i),
     "(" <t: Syntax> ")" => t,
+}
+
+// Library Function
+
+Lib: Lib = {
+    "sin" => Lib::Sin,
+    "cos" => Lib::Cos,
 }
 
 // Value Type

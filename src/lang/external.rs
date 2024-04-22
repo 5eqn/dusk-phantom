@@ -20,11 +20,17 @@ impl<'a> Extern<'a> {
             Value::Float(f) => {
                 match self {
                     Extern::Idx(values) => {
-                        let i = f as usize;
-                        if i >= values.len() {
+                        let floor = f.floor() as usize;
+                        let ceil = f.ceil() as usize;
+                        if ceil >= values.len() || floor >= values.len() {
                             Value::Float(0.0)
                         } else {
-                            Value::Float(values[i])
+                            let lower = values[floor];
+                            let upper = values[ceil];
+                            let fraction = f.fract();
+                            let fraction = (1.0 - (fraction * std::f32::consts::PI).cos()) * 0.5;
+                            let interpolated_value = lower + (upper - lower) * fraction;
+                            Value::Float(interpolated_value)
                         }
                     }
                 }
