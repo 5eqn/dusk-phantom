@@ -138,6 +138,25 @@ pub mod tests_elaborate {
     }
 
     #[test]
+    fn test_sin() {
+        let code = Syntax::Apply(
+            Box::new(Syntax::Lib(Lib::Sin)),
+            Box::new(Syntax::Float(80.0)),
+        );
+        let ctx = Ctx::new();
+        match infer(code.clone(), ctx, 0) {
+            Ok((term, value_type)) => {
+                assert_eq!(term, Term::Apply(
+                    Box::new(Term::Lib(Lib::Sin)),
+                    Box::new(Term::Float(80.0)),
+                ));
+                assert_eq!(value_type, ValueType::Float);
+            }
+            Err(err) => panic!("failed to infer {:?}: {}", code, err),
+        }
+    }
+
+    #[test]
     fn test_alt() {
         let code = Syntax::Alt(
             Box::new(Syntax::Bool(true)),
