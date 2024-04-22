@@ -1,8 +1,41 @@
 use super::*;
 
-pub type Env = Vec<Value>;
+pub type Env<'a> = Vec<Value<'a>>;
 
-pub fn eval(term: Term, env: &Env) -> Value {
+/// Evaluate a reference to a term
+/// `term` and `env` will only be temporarily mutated
+pub fn eval_ref<'a>(term: &mut Term, env: &mut Env<'a>) -> Value<'a> {
+    match term {
+        Term::Float(x) => Value::Float(*x),
+        Term::Bool(x) => Value::Bool(*x),
+        Term::Var(v) => env
+            .get(env.len() - *v as usize - 1)
+            .unwrap()
+            .clone(),
+        Term::Apply(func, arg) => eval_ref(func, env).apply(eval_ref(arg, env)),
+        Term::Lib(x) => Value::Lib(x.clone()),
+        Term::Func(return_type, name, body) => Value::Func(
+            return_type.clone(),
+            Closure(body.clone(), env.clone(), name.clone()),
+        ),
+        Term::Let(_, _, body, next) => {
+            let value = eval_ref(body, env);
+            env.push(value);
+            let result = eval_ref(next, env);
+            env.pop();
+            result
+        }
+        Term::Alt(cond, then, else_) => match eval_ref(cond, env) {
+            Value::Bool(true) => eval_ref(then, env),
+            Value::Bool(false) => eval_ref(else_, env),
+            other => panic!("{} is not a boolean", other),
+        },
+    }
+}
+
+/// Evaluate a term
+/// `env` will only be temporarily mutated
+pub fn eval<'a>(term: Term, env: &mut Env<'a>) -> Value<'a> {
     match term {
         Term::Float(x) => Value::Float(x),
         Term::Bool(x) => Value::Bool(x),
@@ -11,21 +44,59 @@ pub fn eval(term: Term, env: &Env) -> Value {
             .unwrap()
             .clone(),
         Term::Apply(func, arg) => eval(*func, env).apply(eval(*arg, env)),
-        Term::Extern(x) => x.into(),
+        Term::Lib(x) => Value::Lib(x),
         Term::Func(return_type, name, body) => Value::Func(
             return_type,
             Closure(body, env.clone(), name),
         ),
         Term::Let(_, _, body, next) => {
             let value = eval(*body, env);
-            let mut env = env.clone();
             env.push(value);
-            eval(*next, &env)
+            let result = eval(*next, env);
+            env.pop();
+            result
         }
         Term::Alt(cond, then, else_) => match eval(*cond, env) {
             Value::Bool(true) => eval(*then, env),
             Value::Bool(false) => eval(*else_, env),
-            other => panic!("{} is not a boolean", other),
+            other => {
+                let then = eval(*then, env);
+                let else_ = eval(*else_, env);
+                Value::Alt(other.into(), then.into(), else_.into())
+            }
+        },
+    }
+}
+
+/// Evaluate a closure (which includes owned env)
+/// Consumes the environment
+pub fn eval_closure(term: Term, mut env: Env) -> Value {
+    match term {
+        Term::Float(x) => Value::Float(x),
+        Term::Bool(x) => Value::Bool(x),
+        Term::Var(v) => env.swap_remove(env.len() - v as usize - 1),
+        Term::Apply(func, arg) => {
+            let arg = eval(*arg, &mut env);
+            eval_closure(*func, env).apply(arg)
+        },
+        Term::Lib(x) => Value::Lib(x),
+        Term::Func(return_type, name, body) => Value::Func(
+            return_type,
+            Closure(body, env, name),
+        ),
+        Term::Let(_, _, body, next) => {
+            let value = eval(*body, &mut env);
+            env.push(value);
+            eval_closure(*next, env)
+        }
+        Term::Alt(cond, then, else_) => match eval(*cond, &mut env) {
+            Value::Bool(true) => eval_closure(*then, env),
+            Value::Bool(false) => eval_closure(*else_, env),
+            other => {
+                let then = eval(*then, &mut env);
+                let else_ = eval_closure(*else_, env);
+                Value::Alt(other.into(), then.into(), else_.into())
+            }
         },
     }
 }
@@ -38,8 +109,8 @@ pub mod tests_eval {
     #[test]
     fn test_minimal() {
         let code = Term::Float(80.0);
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 80.0),
             result => panic!("result of {} is not float: {}", code, result),
         }
@@ -49,19 +120,19 @@ pub mod tests_eval {
     fn test_numeric() {
         let code = Term::Apply(
             Term::Apply(
-                Box::new(Term::Extern(Extern::Mul)),
+                Box::new(Term::Lib(Lib::Mul)),
                 Box::new(Term::Float(1.4)),
             ).into(),
             Term::Apply(
                 Term::Apply(
-                    Box::new(Term::Extern(Extern::Add)),
+                    Box::new(Term::Lib(Lib::Add)),
                     Box::new(Term::Float(2.0)),
                 ).into(),
                 Term::Float(3.0).into(),
             ).into(),
         );
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 7.0),
             result => panic!("result of {} is not float: {}", code, result),
         }
@@ -77,8 +148,8 @@ pub mod tests_eval {
             )),
             Box::new(Term::Float(1.4)),
         );
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 1.4),
             result => panic!("result of {} is not float: {}", code, result),
         }
@@ -92,8 +163,8 @@ pub mod tests_eval {
             Box::new(Term::Float(80.0)),
             Box::new(Term::Var(0)),
         );
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 80.0),
             result => panic!("result of {} is not float: {}", code, result),
         }
@@ -106,8 +177,8 @@ pub mod tests_eval {
             Box::new(Term::Float(80.0)),
             Box::new(Term::Float(90.0)),
         );
-        let env = Env::new();
-        match eval(code.clone(), &env) {
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 80.0),
             result => panic!("result of {} is not float: {}", code, result),
         }

@@ -27,17 +27,26 @@ pub mod tests_expr {
     }
 
     #[test]
+    fn test_lib() {
+        let code = "sin(7)";
+        match parse(code) {
+            Ok(result) => assert_eq!(result, Syntax::Apply(Syntax::Lib(Lib::Sin).into(), Syntax::Float(7.0).into())),
+            Err(err) => panic!("failed to parse {}: {}", code, err),
+        }
+    }
+
+    #[test]
     fn test_numeric() {
         let code = "1.4*(2.0+3.0)";
         match parse(code) {
             Ok(result) => assert_eq!(result, Syntax::Apply(
                 Syntax::Apply(
-                    Box::new(Syntax::Extern(Extern::Mul)),
+                    Box::new(Syntax::Lib(Lib::Mul)),
                     Box::new(Syntax::Float(1.4)),
                 ).into(),
                 Syntax::Apply(
                     Syntax::Apply(
-                        Box::new(Syntax::Extern(Extern::Add)),
+                        Box::new(Syntax::Lib(Lib::Add)),
                         Box::new(Syntax::Float(2.0)),
                     ).into(),
                     Syntax::Float(3.0).into(),
@@ -117,7 +126,7 @@ pub mod tests_expr {
             Ok(result) => assert_eq!(result, Syntax::Alt(
                 Box::new(Syntax::Apply(
                     Box::new(Syntax::Apply(
-                        Box::new(Syntax::Extern(Extern::Lt)),
+                        Box::new(Syntax::Lib(Lib::Lt)),
                         Box::new(Syntax::Float(1.4)),
                     )),
                     Box::new(Syntax::Float(2.0)),
