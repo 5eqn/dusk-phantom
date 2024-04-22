@@ -4,11 +4,11 @@ use nih_plug::prelude::*;
 use nih_plug_vizia::ViziaState;
 use realfft::{num_complex::Complex32, ComplexToReal, RealFftPlanner, RealToComplex};
 use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
 
 mod constant;
 mod editor;
 pub mod lang;
-mod assets;
 
 /// This is mostly identical to the gain example, minus some fluff, and with a GUI.
 pub struct DuskPhantom {
@@ -48,6 +48,33 @@ struct PluginState {
     code_value: Mutex<Option<Value<'static>>>,
 }
 
+impl PluginState {
+    pub fn update_code(&self, profile: i32) {
+        // Get file path
+        let path = std::env::var("DUSK_PHANTOM_PATH").unwrap_or_else(|_| "/home/seqn/dft".to_string());
+        let file_path = PathBuf::from(&path).join(format!("{}.dft", profile));
+        let file_str = file_path.to_str().unwrap_or("unknown path").to_string();
+
+        // Read code from file
+        let code_str = match std::fs::read_to_string(file_path) {
+            Ok(code_str) => code_str,
+            Err(err) => {
+                return *self.message.lock().unwrap() = format!("Error reading from {}: {}", file_str, err);
+            }
+        };
+
+        // Evaluate and simplify code as a function
+        let (msg, code) = match run(&code_str) {
+            Ok(val) => (format!("Compilation success: {}", val.pretty_term()), Some(val)),
+            Err(err) => (err, None),
+        };
+
+        // Put message and code in memory
+        *self.message.lock().unwrap() = msg;
+        *self.code_value.lock().unwrap() = code;
+    }
+}
+
 #[derive(Params)]
 struct PluginParams {
     /// The editor state, saved together with the parameter state so the custom scaling can be
@@ -77,6 +104,10 @@ pub struct GlobalParams {
     /// prevent invalid inputs).
     #[id = "stft_overlap"]
     pub overlap_times_order: IntParam,
+
+    /// The profile to use.
+    #[id = "profile"]
+    pub profile: IntParam,
 }
 
 impl Default for DuskPhantom {
@@ -132,6 +163,14 @@ impl Default for GlobalParams {
             )
             .with_value_to_string(formatters::v2s_i32_power_of_two())
             .with_string_to_value(formatters::s2v_i32_power_of_two()),
+            profile: IntParam::new(
+                "Profile",
+                1,
+                IntRange::Linear {
+                    min: 1,
+                    max: 16,
+                },
+            )
         }
     }
 }
@@ -202,13 +241,8 @@ impl Plugin for DuskPhantom {
         _buffer_config: &BufferConfig,
         context: &mut impl InitContext<Self>,
     ) -> bool {
-        // Init code state
-        let (msg, code) = match run(&self.params.code.lock().unwrap()) {
-            Ok(val) => (format!("Compilation success: {}", val.pretty_term()), Some(val)),
-            Err(err) => (err, None),
-        };
-        *self.plugin_state.message.lock().unwrap() = msg;
-        *self.plugin_state.code_value.lock().unwrap() = code;
+        // Update code
+        self.plugin_state.update_code(self.params.global.profile.value());
 
         // This plugin can accept a variable number of audio channels, so we need to resize
         // channel-dependent data structures accordingly
