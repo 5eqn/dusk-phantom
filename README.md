@@ -10,6 +10,15 @@ make vst3
 
 For more info, check `Makefile`.
 
+## Usage
+
+1. Change environment variable `DUSK_PHANTOM_PATH` to your code directory
+  - REMOVE TRAILING `/`
+2. Write `{profile}.dft`
+  - `{profile}` should be replaced to the actual profile you use, for example `1`
+3. Reload code manually
+  - You can see compilation results in the GUI
+
 ## Syntax
 
 Low pass:
