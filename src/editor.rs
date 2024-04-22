@@ -23,7 +23,8 @@ impl Model for Data {
     fn event(&mut self, _: &mut EventContext, event: &mut Event) {
         event.map(|app_event, _| match app_event {
             AppEvent::UpdateCode => {
-                self.plugin_state.update_code(self.params.global.profile.value());
+                self.plugin_state
+                    .update_code(self.params.global.profile.value(), self.params.code.clone());
             }
         });
     }
@@ -60,14 +61,13 @@ pub(crate) fn create(
                 .bottom(Stretch(1.0));
 
             // Generic params
-            GenericUi::new(cx, Data::params.map(|p| p.global.clone()))
-            .bottom(Stretch(1.0));
+            GenericUi::new(cx, Data::params.map(|p| p.global.clone())).bottom(Stretch(1.0));
 
             // Update code button
             Button::new(
-                cx, 
-                |cx| cx.emit(AppEvent::UpdateCode), 
-                |cx| Label::new(cx, "Update Code")
+                cx,
+                |cx| cx.emit(AppEvent::UpdateCode),
+                |cx| Label::new(cx, "Update Code"),
             )
             .bottom(Stretch(1.0));
 
