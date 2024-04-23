@@ -8,6 +8,7 @@ pub enum Term {
     Bool(bool),
     Var(Index),
     Lib(Lib),
+    Tuple(Vec<Term>),
     Apply(Box<Term>, Box<Term>),
     Func(Box<ValueType>, String, Box<Term>),
     Let(Box<ValueType>, String, Box<Term>, Box<Term>),
@@ -21,6 +22,7 @@ impl fmt::Display for Term {
             Term::Bool(value) => write!(f, "Term::Bool({})", value),
             Term::Var(name) => write!(f, "Term::Var({}.into())", name),
             Term::Lib(lib) => write!(f, "Term::Lib({:?})", lib),
+            Term::Tuple(terms) => write!(f, "Term::Tuple(vec![{}])", terms.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(", ")),
             Term::Apply(term1, term2) => write!(f, "Term::Apply({}.into(), {}.into())", term1, term2),
             Term::Func(value_type, name, term) => write!(f, "Term::Func({}.into(), {}.into(), {}.into())", value_type, name, term),
             Term::Let(value_type, name, term1, term2) => write!(f, "Term::Let({}.into(), {}.into(), {}.into(), {}.into())", value_type, name, term1, term2),
@@ -36,6 +38,7 @@ impl Term {
             Term::Bool(x) => x.to_string(),
             Term::Var(x) => x.to_string(),
             Term::Lib(x) => x.to_string(),
+            Term::Tuple(terms) => format!("({})", terms.iter().map(|t| t.pretty_term()).collect::<Vec<_>>().join(", ")),
             Term::Apply(func, arg) => format!(
                 "{}({})",
                 func.pretty_atom(),

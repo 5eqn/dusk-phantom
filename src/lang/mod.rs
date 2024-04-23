@@ -28,11 +28,17 @@ fn target_type() -> ValueType {
     ValueType::Func(
         Box::new(ValueType::Func(
             Box::new(ValueType::Float),
-            Box::new(ValueType::Float),
+            Box::new(ValueType::Tuple(vec![
+                ValueType::Float,
+                ValueType::Float,
+            ])),
         )),
         Box::new(ValueType::Func(
             Box::new(ValueType::Float),
-            Box::new(ValueType::Float),
+            Box::new(ValueType::Tuple(vec![
+                ValueType::Float,
+                ValueType::Float,
+            ])),
         )),
     )
 }

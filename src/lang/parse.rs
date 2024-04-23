@@ -137,4 +137,16 @@ pub mod tests_expr {
             Err(err) => panic!("failed to parse {}: {}", code, err),
         }
     }
+
+    #[test]
+    fn test_tuple() {
+        let code = "(1.4, 2.0)";
+        match parse(code) {
+            Ok(result) => assert_eq!(result, Syntax::Tuple(vec![
+                Syntax::Float(1.4),
+                Syntax::Float(2.0),
+            ])),
+            Err(err) => panic!("failed to parse {}: {}", code, err),
+        }
+    }
 }

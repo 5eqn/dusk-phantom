@@ -14,6 +14,7 @@ pub fn eval_ref<'a>(term: &mut Term, env: &mut Env<'a>) -> Value<'a> {
             .clone(),
         Term::Apply(func, arg) => eval_ref(func, env).apply(eval_ref(arg, env)),
         Term::Lib(x) => Value::Lib(x.clone()),
+        Term::Tuple(terms) => Value::Tuple(terms.iter_mut().map(|t| eval_ref(t, env)).collect()),
         Term::Func(return_type, name, body) => Value::Func(
             return_type.clone(),
             Closure(body.clone(), env.clone(), name.clone()),
@@ -45,6 +46,7 @@ pub fn eval<'a>(term: Term, env: &mut Env<'a>) -> Value<'a> {
             .clone(),
         Term::Apply(func, arg) => eval(*func, env).apply(eval(*arg, env)),
         Term::Lib(x) => Value::Lib(x),
+        Term::Tuple(terms) => Value::Tuple(terms.into_iter().map(|t| eval(t, env)).collect()),
         Term::Func(return_type, name, body) => Value::Func(
             return_type,
             Closure(body, env.clone(), name),
@@ -80,6 +82,7 @@ pub fn eval_closure(term: Term, mut env: Env) -> Value {
             eval_closure(*func, env).apply(arg)
         },
         Term::Lib(x) => Value::Lib(x),
+        Term::Tuple(terms) => Value::Tuple(terms.into_iter().map(|t| eval(t, &mut env)).collect()),
         Term::Func(return_type, name, body) => Value::Func(
             return_type,
             Closure(body, env, name),
@@ -181,6 +184,29 @@ pub mod tests_eval {
         match eval(code.clone(), &mut env) {
             Value::Float(x) => assert_eq!(x, 80.0),
             result => panic!("result of {} is not float: {}", code, result),
+        }
+    }
+
+    #[test]
+    fn test_tuple() {
+        let code = Term::Tuple(vec![
+            Term::Float(80.0),
+            Term::Float(90.0),
+        ]);
+        let mut env = Env::new();
+        match eval(code.clone(), &mut env) {
+            Value::Tuple(mut values) => {
+                assert_eq!(values.len(), 2);
+                match values.pop().unwrap() {
+                    Value::Float(x) => assert_eq!(x, 90.0),
+                    result => panic!("result of {} is not float: {}", code, result),
+                }
+                match values.pop().unwrap() {
+                    Value::Float(x) => assert_eq!(x, 80.0),
+                    result => panic!("result of {} is not float: {}", code, result),
+                }
+            }
+            result => panic!("result of {} is not tuple: {}", code, result),
         }
     }
 }

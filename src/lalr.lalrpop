@@ -51,6 +51,7 @@ UnaryExpr: Syntax = {
 }
 
 Apply: Syntax = {
+    <l: Apply> "." <r: Atom> => Syntax::Apply(r.into(), l.into()),
     <l: Apply> "(" <r: Syntax> ")" => Syntax::Apply(l.into(), r.into()),
     <l: Atom> => l,
 }
@@ -60,14 +61,36 @@ Atom: Syntax = {
     <n: Bool> => Syntax::Bool(n),
     <n: Lib> => Syntax::Lib(n),
     <i: Ident> => Syntax::Var(i),
-    "(" <t: Syntax> ")" => t,
+    "(" <t: SyntaxList> ")" => {
+        let mut tuple = t;
+        if tuple.len() > 1 {
+            Syntax::Tuple(tuple)
+        } else {
+            tuple.pop().unwrap()
+        }
+    }
 }
+
+SyntaxList: Vec<Syntax> = {
+    <s: SyntaxList> "," <r: Syntax> => {
+        let mut list = s;
+        list.push(r);
+        list
+    },
+    <s: Syntax> => vec![s],
+}
+
 
 // Library Function
 
 Lib: Lib = {
     "sin" => Lib::Sin,
     "cos" => Lib::Cos,
+    "re" => Lib::Re,
+    "im" => Lib::Im,
+    "norm" => Lib::Norm,
+    "angle" => Lib::Angle,
+    "polar" => Lib::Polar,
 }
 
 // Value Type
@@ -82,7 +105,23 @@ TFunc: ValueType = {
 TAtom: ValueType = {
     "Float" => ValueType::Float,
     "Bool" => ValueType::Bool,
-    "(" <t: ValueType> ")" => t,
+    "(" <t: TypeList> ")" => {
+        let mut tuple = t;
+        if tuple.len() > 1 {
+            ValueType::Tuple(tuple)
+        } else {
+            tuple.pop().unwrap()
+        }
+    }
+}
+
+TypeList: Vec<ValueType> = {
+    <s: TypeList> "," <r: ValueType> => {
+        let mut list = s;
+        list.push(r);
+        list
+    },
+    <s: ValueType> => vec![s],
 }
 
 // Literals
