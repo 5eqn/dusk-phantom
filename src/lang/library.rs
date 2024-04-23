@@ -87,6 +87,12 @@ impl Display for Lib {
 }
 
 impl Lib {
+    // Check if library function is a symbol
+    pub fn is_symbol(&self) -> bool {
+        matches!(self, Lib::Fft | Lib::Beat | Lib::Sec)
+    }
+
+    // Apply in evaluation
     pub fn apply(&self, arg: Value, res: &Resource) -> Value {
         match self {
             Lib::Beat => Value::Float(res.beat as f32),
@@ -122,9 +128,11 @@ impl Lib {
             _ => self.clone().papply(arg)
         }
     }
+
+    /// Apply in partial evaluation
     pub fn papply(self, arg: Value) -> Value {
         // Refuse to apply lib function to symbol (during partial eval stage)
-        if arg.is_symbol() || Value::Lib(self).is_symbol() {
+        if arg.is_symbol() || self.is_symbol() {
             return Value::Apply(Value::Lib(self).into(), vec![arg]);
         }
 
