@@ -63,7 +63,7 @@ impl Value {
             Value::Var(_) => true,
             Value::Apply(_, _) => true,
             Value::Tuple(xs) => xs.iter().any(|x| x.is_symbol()),
-            Value::Lib(l) => matches!(l, Lib::Fft | Lib::Beat | Lib::Sec),
+            Value::Lib(l) => l.is_symbol(),
             _ => false,
         }
     }
