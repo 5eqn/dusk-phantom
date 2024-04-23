@@ -1,17 +1,17 @@
-use dusk_phantom::lang::{run, Extern, Value};
+use dusk_phantom::lang::{run, Lib, Resource, Value};
 use realfft::num_complex::Complex32;
 
 #[test]
 fn test_lp() {
     let len = 1024;
-    let complex_vec: Vec<Complex32> = vec![Complex32::new(1.0, 0.0); len];
-    let norms: &[Complex32] = &complex_vec;
+    let complex: Vec<Complex32> = vec![Complex32::new(1.0, 0.0); len];
     let code = "let lp: Float -> Float -> Float = (l: Float) => (i: Float) => if i < l then 1 else 0 in (f: Float -> (Float, Float)) => (i: Float) => (f(i).norm * lp(800)(i), f(i).angle).polar";
     let code_value = match run(code) {
         Ok(x) => x,
         Err(err) => panic!("failed to run code: {}", err),
     };
-    let result = code_value.clone().apply(Value::Extern(Extern::ComplexArray(norms))).collect(0..len);
+
+    let result = code_value.clone().papply(Value::Lib(Lib::Array)).collect(0..len, &Resource { fft: &complex });
     for res in &result[0..800] {
         let Value::Tuple(xs) = res else {
             panic!("result is not complex: {}", res);

@@ -6,13 +6,12 @@ pub fn quote(env_len: usize, val: Value) -> Term {
         Value::Int(i) => Term::Float(i as f32),
         Value::Bool(i) => Term::Bool(i),
         Value::Lib(i) => Term::Lib(i),
-        Value::Extern(_) => panic!("Can't quote extern"),
         Value::Tuple(xs) => {
             let xs = xs.into_iter().map(|x| quote(env_len, x)).collect();
             Term::Tuple(xs)
         },
         Value::Func(return_type, closure) => {
-            let temp_val = closure.apply(Value::Var(env_len as i32));
+            let temp_val = closure.papply(Value::Var(env_len as i32));
             Term::Func(return_type, "".into(), quote(env_len + 1, temp_val).into())
         },
         Value::Apply(func, args) => {
@@ -38,7 +37,7 @@ pub fn quote(env_len: usize, val: Value) -> Term {
 }
 
 pub fn simp(term: Term) -> Term {
-    let val = eval(term, &mut Vec::new());
+    let val = peval(term, &mut Vec::new());
     quote(0, val)
 }
 

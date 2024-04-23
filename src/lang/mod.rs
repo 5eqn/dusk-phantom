@@ -2,12 +2,12 @@ pub mod elaborate;
 pub mod eval;
 pub mod quote;
 pub mod library;
-pub mod external;
 pub mod parse;
 pub mod syntax;
 pub mod term;
 pub mod value;
 pub mod value_type;
+pub mod resource;
 
 use std::collections::HashMap;
 
@@ -19,8 +19,8 @@ pub use quote::*;
 pub use syntax::*;
 pub use term::*;
 pub use value::*;
-pub use external::*;
 pub use value_type::*;
+pub use resource::*;
 
 pub type RunError = String;
 
@@ -43,11 +43,11 @@ fn target_type() -> ValueType {
     )
 }
 
-pub fn run<'a>(code: &str) -> Result<Value<'a>, RunError> {
+pub fn run(code: &str) -> Result<Value, RunError> {
     let mut env = Vec::new();
     let ctx = HashMap::new();
     let syntax = parse(code).map_err(|e| format!("Parse error: {}", e))?;
     let term = check(syntax, ctx, target_type(), 0).map_err(|e| format!("Elaborate error: {}", e))?;
     let simp_term = simp(term);
-    Ok(eval(simp_term, &mut env))
+    Ok(peval(simp_term, &mut env))
 }

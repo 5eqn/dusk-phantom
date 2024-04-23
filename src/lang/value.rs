@@ -4,24 +4,26 @@ use super::*;
 use std::fmt::Display;
 
 #[derive(Clone, PartialEq)]
-pub struct Closure<'a>(pub Box<Term>, pub Env<'a>, pub String);
+pub struct Closure(pub Box<Term>, pub Env, pub String);
 
-impl<'a> Closure<'a> {
-    pub fn apply_ref(&mut self, arg: Value<'a>) -> Value<'a> {
+impl Closure {
+    /// Apply argument in evaluation.
+    pub fn apply<'a>(&mut self, arg: Value, res: &'a Resource<'a>) -> Value {
         self.1.push(arg);
-        let result = eval_ref(&mut self.0, &mut self.1);
+        let result = eval(&mut self.0, &mut self.1, res);
         self.1.pop();
         result
     }
 
-    pub fn apply(self, arg: Value<'a>) -> Value<'a> {
+    /// Apply argument in partial evaluation.
+    pub fn papply(self, arg: Value) -> Value {
         let mut env = self.1;
         env.push(arg);
-        eval_closure(*self.0, env)
+        peval_closure(*self.0, env)
     }
 }
 
-impl<'a> Display for Closure<'a> {
+impl Display for Closure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -38,7 +40,7 @@ impl<'a> Display for Closure<'a> {
 }
 
 #[derive(Clone)]
-pub enum Value<'a> {
+pub enum Value {
     /// Although there's no integer type,
     /// an integer can be seen as a float.
     /// Operation involving pure int will accelerate.
@@ -47,31 +49,13 @@ pub enum Value<'a> {
     Bool(bool),
     Lib(Lib),
     Var(Level),
-    Tuple(Vec<Value<'a>>),
-    Extern(Extern<'a>),
-    Apply(Box<Value<'a>>, Vec<Value<'a>>),
-    Func(Box<ValueType>, Closure<'a>),
-    Alt(Box<Value<'a>>, Box<Value<'a>>, Box<Value<'a>>),
+    Tuple(Vec<Value>),
+    Apply(Box<Value>, Vec<Value>),
+    Func(Box<ValueType>, Closure),
+    Alt(Box<Value>, Box<Value>, Box<Value>),
 }
 
-impl<'a> Value<'a> {
-    /// Remove dependency on external array.
-    /// This can decouple the lifetime of the value from external array.
-    pub fn remove_depend<'b>(self) -> Value<'b> {
-        match self {
-            Value::Float(x) => Value::Float(x),
-            Value::Int(x) => Value::Int(x),
-            Value::Bool(x) => Value::Bool(x),
-            Value::Lib(l) => Value::Lib(l),
-            Value::Var(l) => Value::Var(l),
-            Value::Tuple(xs) => Value::Tuple(xs.into_iter().map(|x| x.remove_depend()).collect()),
-            Value::Extern(_) => panic!("Extern value is not allowed"),
-            Value::Func(_, _) => panic!("Func value is not allowed"),
-            Value::Apply(func, args) => Value::Apply(func.remove_depend().into(), args.into_iter().map(|x| x.remove_depend()).collect()),
-            Value::Alt(cond, then, else_) => Value::Alt(cond.remove_depend().into(), then.remove_depend().into(), else_.remove_depend().into()),
-        }
-    }
-
+impl Value {
     /// Check if value is a symbol.
     /// If it is, lib function will not be evaluated.
     pub fn is_symbol(&self) -> bool {
@@ -83,12 +67,11 @@ impl<'a> Value<'a> {
         }
     }
 
-    /// Apply an argument to a mutable reference of a value.
-    pub fn apply_ref(&mut self, arg: Value<'a>) -> Value<'a> {
+    /// Apply an argument in evaluation.
+    pub fn apply<'a>(&mut self, arg: Value, res: &'a Resource<'a>) -> Value {
         match self {
-            Value::Func(_, closure) => closure.apply_ref(arg),
-            Value::Lib(l) => l.apply(arg),
-            Value::Extern(e) => e.apply(arg),
+            Value::Func(_, closure) => closure.apply(arg, res),
+            Value::Lib(l) => l.apply(arg, res),
             Value::Apply(func, args) => {
                 let mut args = args.clone();
                 args.push(arg);
@@ -98,12 +81,11 @@ impl<'a> Value<'a> {
         }
     }
 
-    /// Apply an argument to a value.
-    pub fn apply(self, arg: Value<'a>) -> Value<'a> {
+    /// Apply an argument to a value in partial evaluation.
+    pub fn papply(self, arg: Value) -> Value {
         match self {
-            Value::Func(_, closure) => closure.apply(arg),
-            Value::Lib(l) => l.apply(arg),
-            Value::Extern(e) => e.apply(arg),
+            Value::Func(_, closure) => closure.papply(arg),
+            Value::Lib(l) => l.papply(arg),
             Value::Apply(func, mut args) => {
                 args.push(arg);
                 Value::Apply(func, args)
@@ -113,18 +95,18 @@ impl<'a> Value<'a> {
     }
 
     /// Treat a value as an array, collect its values at all indicies.
-    pub fn collect<'b>(mut self, range: impl Iterator<Item = usize>) -> Vec<Value<'b>>
+    pub fn collect(mut self, range: impl Iterator<Item = usize>, res: &Resource) -> Vec<Value>
     {
         let mut values = Vec::new();
         for i in range {
-            values.push(self.apply_ref(Value::Int(i as i32)).remove_depend());
+            values.push(self.apply(Value::Int(i as i32), res));
         }
         values
     }
 }
 
-impl<'a> From<&Value<'a>> for f32 {
-    fn from(val: &Value<'a>) -> Self {
+impl From<&Value> for f32 {
+    fn from(val: &Value) -> Self {
         match val {
             Value::Float(x) => *x,
             Value::Int(x) => *x as f32,
@@ -133,8 +115,8 @@ impl<'a> From<&Value<'a>> for f32 {
     }
 }
 
-impl<'a> From<Value<'a>> for f32 {
-    fn from(val: Value<'a>) -> Self {
+impl From<Value> for f32 {
+    fn from(val: Value) -> Self {
         match val {
             Value::Float(x) => x,
             Value::Int(x) => x as f32,
@@ -143,8 +125,8 @@ impl<'a> From<Value<'a>> for f32 {
     }
 }
 
-impl<'a> From<&Value<'a>> for Complex32 {
-    fn from(val: &Value<'a>) -> Self {
+impl From<&Value> for Complex32 {
+    fn from(val: &Value) -> Self {
         match val {
             Value::Tuple(xs) => {
                 let re: f32 = (&xs[0]).into();
@@ -156,8 +138,8 @@ impl<'a> From<&Value<'a>> for Complex32 {
     }
 }
 
-impl<'a> From<Value<'a>> for Complex32 {
-    fn from(val: Value<'a>) -> Self {
+impl From<Value> for Complex32 {
+    fn from(val: Value) -> Self {
         match val {
             Value::Tuple(mut xs) => {
                 let im: f32 = xs.pop().unwrap().into();
@@ -169,7 +151,7 @@ impl<'a> From<Value<'a>> for Complex32 {
     }
 }
 
-impl<'a> PartialEq for Value<'a> {
+impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Value::Float(x), Value::Float(y)) => x == y,
@@ -186,7 +168,7 @@ impl<'a> PartialEq for Value<'a> {
     }
 }
 
-impl<'a> Display for Value<'a> {
+impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Float(x) => write!(f, "Value::Float({:.3})", x),
@@ -202,7 +184,6 @@ impl<'a> Display for Value<'a> {
                     .collect::<Vec<_>>()
                     .join(", "),
             ),
-            Value::Extern(e) => write!(f, "Value::Extern({})", e),
             Value::Apply(func, args) => write!(
                 f,
                 "Value::Apply({}.into(), vec![{}])",
@@ -224,7 +205,7 @@ impl<'a> Display for Value<'a> {
     }
 }
 
-impl<'a> Value<'a> {
+impl Value {
     pub fn pretty_term(&self) -> String {
         match self {
             Value::Float(x) => format!("{:.3}", x),
@@ -239,7 +220,6 @@ impl<'a> Value<'a> {
                     .collect::<Vec<_>>()
                     .join(", "),
             ),
-            Value::Extern(e) => e.to_string(),
             Value::Apply(func, args) => format!(
                 "{}({})",
                 func.pretty_atom(),

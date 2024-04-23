@@ -45,7 +45,7 @@ struct PluginState {
     debug: Mutex<String>,
     profiler: Mutex<String>,
     message: Mutex<String>,
-    code_value: Mutex<Option<Value<'static>>>,
+    code_value: Mutex<Option<Value>>,
 }
 
 impl PluginState {
@@ -368,16 +368,13 @@ impl Plugin for DuskPhantom {
                     )
                     .unwrap();
 
-                // Apply code value
-                let profile_3 = std::time::Instant::now();
-                let applied_value = code_value.apply(Value::Extern(
-                    Extern::ComplexArray(&self.local_state.complex_fft_buffer)
-                ));
-
                 // Collect result as array
                 let profile_4 = std::time::Instant::now();
                 let len = self.local_state.complex_fft_buffer.len();
-                let result = applied_value.collect(0..len);
+                let res = Resource {
+                    fft: &self.local_state.complex_fft_buffer,
+                };
+                let result = code_value.collect(0..len, &res);
 
                 // Apply new magnitudes
                 let profile_5 = std::time::Instant::now();
@@ -416,10 +413,9 @@ impl Plugin for DuskPhantom {
 
                 // Store profiling result
                 let profile = format!(
-                    "Profile: {} us, {} us, {} us, {} us, {} us, {} us, {} us",
+                    "Profile: {} us, {} us, {} us, {} us, {} us, {} us",
                     profile_0.elapsed().as_micros(),
                     profile_1.elapsed().as_micros(),
-                    profile_3.elapsed().as_micros(),
                     profile_4.elapsed().as_micros(),
                     profile_5.elapsed().as_micros(),
                     profile_6.elapsed().as_micros(),
