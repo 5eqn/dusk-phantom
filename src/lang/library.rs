@@ -124,12 +124,7 @@ impl Lib {
     }
     pub fn papply(self, arg: Value) -> Value {
         // Refuse to apply lib function to symbol (during partial eval stage)
-        if arg.is_symbol() {
-            return Value::Apply(Value::Lib(self).into(), vec![arg]);
-        }
-
-        // Some lib function can only reduce in full apply
-        if let Lib::Fft = self {
+        if arg.is_symbol() || Value::Lib(self).is_symbol() {
             return Value::Apply(Value::Lib(self).into(), vec![arg]);
         }
 
