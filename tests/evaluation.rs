@@ -13,6 +13,7 @@ fn test_lp() {
 
     let resource = Resource { 
         fft: &complex,
+        modulation: &vec![],
         beat: 0.0,
         second: 0.0,
     };

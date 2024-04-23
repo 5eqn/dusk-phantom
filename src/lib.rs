@@ -113,6 +113,10 @@ struct PluginParams {
     /// just for these.
     #[nested(group = "global")]
     pub global: Arc<GlobalParams>,
+
+    /// Modulation parameters.
+    #[nested(group = "modulation")]
+    pub modulation: Arc<ModParams>,
 }
 
 #[derive(Params)]
@@ -129,6 +133,42 @@ pub struct GlobalParams {
     /// The profile to use.
     #[id = "profile"]
     pub profile: IntParam,
+}
+
+#[derive(Params)]
+pub struct ModParams {
+    #[id = "mod1"]
+    pub mod1: FloatParam,
+    #[id = "mod2"]
+    pub mod2: FloatParam,
+    #[id = "mod3"]
+    pub mod3: FloatParam,
+    #[id = "mod4"]
+    pub mod4: FloatParam,
+    #[id = "mod5"]
+    pub mod5: FloatParam,
+    #[id = "mod6"]
+    pub mod6: FloatParam,
+    #[id = "mod7"]
+    pub mod7: FloatParam,
+    #[id = "mod8"]
+    pub mod8: FloatParam,
+    #[id = "mod9"]
+    pub mod9: FloatParam,
+    #[id = "mod10"]
+    pub mod10: FloatParam,
+    #[id = "mod11"]
+    pub mod11: FloatParam,
+    #[id = "mod12"]
+    pub mod12: FloatParam,
+    #[id = "mod13"]
+    pub mod13: FloatParam,
+    #[id = "mod14"]
+    pub mod14: FloatParam,
+    #[id = "mod15"]
+    pub mod15: FloatParam,
+    #[id = "mod16"]
+    pub mod16: FloatParam,
 }
 
 impl Default for DuskPhantom {
@@ -158,6 +198,7 @@ impl Default for PluginParams {
             editor_state: editor::default_state(),
             code: Arc::new(Mutex::new(DEFAULT_CODE.into())),
             global: Arc::new(GlobalParams::default()),
+            modulation: Arc::new(ModParams::default()),
         }
     }
 }
@@ -187,6 +228,52 @@ impl Default for GlobalParams {
             .with_string_to_value(formatters::s2v_i32_power_of_two()),
             profile: IntParam::new("Profile", 1, IntRange::Linear { min: 1, max: 16 }),
         }
+    }
+}
+
+impl Default for ModParams {
+    fn default() -> Self {
+        ModParams {
+            mod1: FloatParam::new("Mod 1", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod2: FloatParam::new("Mod 2", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod3: FloatParam::new("Mod 3", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod4: FloatParam::new("Mod 4", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod5: FloatParam::new("Mod 5", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod6: FloatParam::new("Mod 6", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod7: FloatParam::new("Mod 7", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod8: FloatParam::new("Mod 8", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod9: FloatParam::new("Mod 9", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod10: FloatParam::new("Mod 10", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod11: FloatParam::new("Mod 11", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod12: FloatParam::new("Mod 12", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod13: FloatParam::new("Mod 13", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod14: FloatParam::new("Mod 14", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod15: FloatParam::new("Mod 15", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
+            mod16: FloatParam::new("Mod 16", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),  
+        }
+    }
+}
+
+impl ModParams {
+    fn to_vec(&self) -> Vec<f32> {
+        vec![
+            self.mod1.value(),
+            self.mod2.value(),
+            self.mod3.value(),
+            self.mod4.value(),
+            self.mod5.value(),
+            self.mod6.value(),
+            self.mod7.value(),
+            self.mod8.value(),
+            self.mod9.value(),
+            self.mod10.value(),
+            self.mod11.value(),
+            self.mod12.value(),
+            self.mod13.value(),
+            self.mod14.value(),
+            self.mod15.value(),
+            self.mod16.value(),
+        ]
     }
 }
 
@@ -373,6 +460,7 @@ impl Plugin for DuskPhantom {
                 let len = self.local_state.complex_fft_buffer.len();
                 let res = Resource {
                     fft: &self.local_state.complex_fft_buffer,
+                    modulation: &self.params.modulation.to_vec(),
                     beat: context.transport().pos_beats().unwrap_or(0.0),
                     second: context.transport().pos_seconds().unwrap_or(0.0),
                 };
