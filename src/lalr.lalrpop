@@ -92,6 +92,7 @@ Lib: Lib = {
     "angle" => Lib::Angle,
     "polar" => Lib::Polar,
     "fft" => Lib::Fft,
+    "param" => Lib::Param,
     "beat" => Lib::Beat,
     "sec" => Lib::Sec,
 }

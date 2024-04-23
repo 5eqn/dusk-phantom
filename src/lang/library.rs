@@ -4,6 +4,7 @@ use super::*;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Lib {
     Fft,
+    Param,
     Beat,
     Sec,
     Add,
@@ -46,6 +47,7 @@ impl Display for Lib {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Lib::Fft => write!(f, "fft"),
+            Lib::Param => write!(f, "param"),
             Lib::Beat => write!(f, "beat"),
             Lib::Sec => write!(f, "sec"),
             Lib::Add => write!(f, "add"),
@@ -89,7 +91,7 @@ impl Display for Lib {
 impl Lib {
     // Check if library function is a symbol
     pub fn is_symbol(&self) -> bool {
-        matches!(self, Lib::Fft | Lib::Beat | Lib::Sec)
+        matches!(self, Lib::Fft | Lib::Param | Lib::Beat | Lib::Sec)
     }
 
     // Reduce to value during evaluation
@@ -127,6 +129,34 @@ impl Lib {
                         } else {
                             let value = res.fft[i];
                             Value::Tuple(vec![Value::Float(value.re), Value::Float(value.im)])
+                        }
+                    }
+                    _ => panic!("lib function {} does not accept {}", self, arg)
+                }
+            }
+            Lib::Param => {
+                match arg {
+                    Value::Float(f) => {
+                        let floor = f.floor() as usize;
+                        let ceil = f.ceil() as usize;
+                        if ceil >= res.modulation.len() || floor >= res.modulation.len() {
+                            Value::Float(0.0)
+                        } else {
+                            let lower = res.modulation[floor];
+                            let upper = res.modulation[ceil];
+                            let fraction = f.fract();
+                            let fraction = (1.0 - (fraction * std::f32::consts::PI).cos()) * 0.5;
+                            let interpolated_value = lower + (upper - lower) * fraction;
+                            Value::Float(interpolated_value)
+                        }
+                    }
+                    Value::Int(i) => {
+                        let i = i as usize;
+                        if i >= res.modulation.len() {
+                            Value::Float(0.0)
+                        } else {
+                            let value = res.modulation[i];
+                            Value::Float(value)
                         }
                     }
                     _ => panic!("lib function {} does not accept {}", self, arg)
@@ -244,6 +274,7 @@ impl From<Lib> for ValueType {
     fn from(lib: Lib) -> Self {
         match lib {
             Lib::Fft => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float]))),
+            Lib::Param => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
             Lib::Beat | Lib::Sec => ValueType::Float,
             Lib::Add | Lib::Sub | Lib::Mul | Lib::Div | Lib::Mod => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)))),
             Lib::Lt | Lib::Le | Lib::Gt | Lib::Ge => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)))),

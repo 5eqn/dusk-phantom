@@ -14,6 +14,7 @@ fn eval_benchmark(c: &mut Criterion) {
     };
     let resource = Resource { 
         fft: &complex,
+        modulation: &vec![],
         beat: 0.0,
         second: 0.0,
     };
