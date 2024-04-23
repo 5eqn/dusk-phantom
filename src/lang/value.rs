@@ -8,7 +8,7 @@ pub struct Closure(pub Box<Term>, pub Env, pub String);
 
 impl Closure {
     /// Apply argument in evaluation.
-    pub fn apply<'a>(&mut self, arg: Value, res: &'a Resource<'a>) -> Value {
+    pub fn apply(&mut self, arg: Value, res: &Resource) -> Value {
         self.1.push(arg);
         let result = eval(&mut self.0, &mut self.1, res);
         self.1.pop();
@@ -68,7 +68,7 @@ impl Value {
     }
 
     /// Apply an argument in evaluation.
-    pub fn apply<'a>(&mut self, arg: Value, res: &'a Resource<'a>) -> Value {
+    pub fn apply(&mut self, arg: Value, res: &Resource) -> Value {
         match self {
             Value::Func(_, closure) => closure.apply(arg, res),
             Value::Lib(l) => l.apply(arg, res),

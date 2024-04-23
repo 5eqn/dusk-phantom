@@ -3,7 +3,9 @@ use super::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Lib {
-    Array,
+    Fft,
+    Beat,
+    Sec,
     Add,
     Sub,
     Mul,
@@ -43,7 +45,9 @@ pub enum Lib {
 impl Display for Lib {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Lib::Array => write!(f, "array"),
+            Lib::Fft => write!(f, "fft"),
+            Lib::Beat => write!(f, "beat"),
+            Lib::Sec => write!(f, "sec"),
             Lib::Add => write!(f, "add"),
             Lib::Sub => write!(f, "sub"),
             Lib::Mul => write!(f, "mul"),
@@ -83,9 +87,11 @@ impl Display for Lib {
 }
 
 impl Lib {
-    pub fn apply<'a>(&self, arg: Value, res: &'a Resource<'a>) -> Value {
+    pub fn apply(&self, arg: Value, res: &Resource) -> Value {
         match self {
-            Lib::Array => {
+            Lib::Beat => Value::Float(res.beat as f32),
+            Lib::Sec => Value::Float(res.second as f32),
+            Lib::Fft => {
                 match arg {
                     Value::Float(f) => {
                         let floor = f.floor() as usize;
@@ -123,7 +129,7 @@ impl Lib {
         }
 
         // Some lib function can only reduce in full apply
-        if let Lib::Array = self {
+        if let Lib::Fft = self {
             return Value::Apply(Value::Lib(self).into(), vec![arg]);
         }
 
@@ -227,7 +233,8 @@ impl Lib {
 impl From<Lib> for ValueType {
     fn from(lib: Lib) -> Self {
         match lib {
-            Lib::Array => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float]))),
+            Lib::Fft => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float]))),
+            Lib::Beat | Lib::Sec => ValueType::Float,
             Lib::Add | Lib::Sub | Lib::Mul | Lib::Div | Lib::Mod => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)))),
             Lib::Lt | Lib::Le | Lib::Gt | Lib::Ge => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)))),
             Lib::Add1(_) | Lib::Sub1(_) | Lib::Mul1(_) | Lib::Div1(_) | Lib::Mod1(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
