@@ -13,7 +13,7 @@ pub fn eval(term: &mut Term, env: &mut Env, res: &Resource) -> Value {
             .unwrap()
             .clone(),
         Term::Apply(func, arg) => eval(func, env, res).apply(eval(arg, env, res), res),
-        Term::Lib(x) => Value::Lib(x.clone()),
+        Term::Lib(x) => x.clone().to_value(res),
         Term::Tuple(terms) => Value::Tuple(terms.iter_mut().map(|t| eval(t, env, res)).collect()),
         Term::Func(return_type, name, body) => Value::Func(
             return_type.clone(),

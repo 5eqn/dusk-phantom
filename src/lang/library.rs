@@ -92,11 +92,18 @@ impl Lib {
         matches!(self, Lib::Fft | Lib::Beat | Lib::Sec)
     }
 
-    // Apply in evaluation
-    pub fn apply(&self, arg: Value, res: &Resource) -> Value {
+    // Reduce to value during evaluation
+    pub fn to_value(self, res: &Resource) -> Value {
         match self {
             Lib::Beat => Value::Float(res.beat as f32),
             Lib::Sec => Value::Float(res.second as f32),
+            _ => Value::Lib(self),
+        }
+    }
+
+    // Apply in evaluation
+    pub fn apply(&self, arg: Value, res: &Resource) -> Value {
+        match self {
             Lib::Fft => {
                 match arg {
                     Value::Float(f) => {
