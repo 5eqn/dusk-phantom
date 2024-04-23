@@ -368,42 +368,28 @@ impl Plugin for DuskPhantom {
                     )
                     .unwrap();
 
-                // Calculate new magnitudes
-                let profile_2 = std::time::Instant::now();
-                let len = self.local_state.complex_fft_buffer.len();
-                let norms_vec = self
-                    .local_state
-                    .complex_fft_buffer
-                    .iter()
-                    .map(|c| c.norm())
-                    .collect::<Vec<_>>();
-                let norms = norms_vec.as_slice();
-
                 // Apply code value
                 let profile_3 = std::time::Instant::now();
-                let mut applied_value = code_value.apply(norms.into());
+                let applied_value = code_value.apply(Value::Extern(
+                    Extern::ComplexArray(&self.local_state.complex_fft_buffer)
+                ));
 
                 // Collect result as array
                 let profile_4 = std::time::Instant::now();
+                let len = self.local_state.complex_fft_buffer.len();
                 let result = applied_value.collect(0..len);
 
                 // Apply new magnitudes
                 let profile_5 = std::time::Instant::now();
                 for (val, complex) in result
                     .into_iter()
-                    .zip(&mut self.local_state.complex_fft_buffer)
-                {
-                    let norm = match val {
-                        Value::Float(f) => f,
-                        _ => 0.0,
-                    };
-                    let old_norm = complex.norm();
-                    if old_norm == 0.0 {
-                        *complex = Complex32::new(norm, 0.0);
-                    } else {
-                        *complex *= norm / old_norm;
-                    }
+                    .zip(&mut self.local_state.complex_fft_buffer) {
+                    *complex = val.into();
                 }
+
+                // Remove extreme value
+                self.local_state.complex_fft_buffer[0] = Complex32::default();
+                self.local_state.complex_fft_buffer[len - 1] = Complex32::default();
 
                 // Inverse FFT back into the scratch buffer. This will be added to a ring buffer
                 // which gets written back to the host at a one block delay.
@@ -430,10 +416,9 @@ impl Plugin for DuskPhantom {
 
                 // Store profiling result
                 let profile = format!(
-                    "Profile: {} us, {} us, {} us, {} us, {} us, {} us, {} us, {} us",
+                    "Profile: {} us, {} us, {} us, {} us, {} us, {} us, {} us",
                     profile_0.elapsed().as_micros(),
                     profile_1.elapsed().as_micros(),
-                    profile_2.elapsed().as_micros(),
                     profile_3.elapsed().as_micros(),
                     profile_4.elapsed().as_micros(),
                     profile_5.elapsed().as_micros(),

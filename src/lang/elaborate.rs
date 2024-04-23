@@ -16,6 +16,16 @@ pub fn infer(syntax: Syntax, ctx: Ctx, env_len: Level) -> Result<(Term, ValueTyp
             None => Err(format!("Variable not found: {}", name)),
         },
         Syntax::Lib(lib) => Ok((Term::Lib(lib.clone()), lib.into())),
+        Syntax::Tuple(syntaxes) => {
+            let mut terms = Vec::new();
+            let mut value_types = Vec::new();
+            for syntax in syntaxes {
+                let (term, value_type) = infer(syntax, ctx.clone(), env_len)?;
+                terms.push(term);
+                value_types.push(value_type);
+            }
+            Ok((Term::Tuple(terms), ValueType::Tuple(value_types)))
+        }
         Syntax::Apply(func, arg) => {
             let (func_term, func_type) = infer(*func, ctx.clone(), env_len)?;
             match func_type {
@@ -71,6 +81,16 @@ pub fn unify(t1: ValueType, t2: ValueType) -> Result<ValueType, ElaborateError> 
             let p = unify(*p1, *p2)?;
             let r = unify(*r1, *r2)?;
             Ok(ValueType::Func(Box::new(p), Box::new(r)))
+        }
+        (ValueType::Tuple(ts1), ValueType::Tuple(ts2)) => {
+            if ts1.len() != ts2.len() {
+                return Err(format!("Tuple length mismatch: {} != {}", ts1.len(), ts2.len()));
+            }
+            let mut ts = Vec::new();
+            for (t1, t2) in ts1.into_iter().zip(ts2.into_iter()) {
+                ts.push(unify(t1, t2)?);
+            }
+            Ok(ValueType::Tuple(ts))
         }
         (t1, t2) => Err(format!("Unification failed: {} != {}", t1, t2)),
     }
@@ -172,6 +192,28 @@ pub mod tests_elaborate {
                     Box::new(Term::Float(90.0)),
                 ));
                 assert_eq!(value_type, ValueType::Float);
+            }
+            Err(err) => panic!("failed to infer {:?}: {}", code, err),
+        }
+    }
+
+    #[test]
+    fn test_tuple() {
+        let code = Syntax::Tuple(vec![
+            Syntax::Float(80.0),
+            Syntax::Float(90.0),
+        ]);
+        let ctx = Ctx::new();
+        match infer(code.clone(), ctx, 0) {
+            Ok((term, value_type)) => {
+                assert_eq!(term, Term::Tuple(vec![
+                    Term::Float(80.0),
+                    Term::Float(90.0),
+                ]));
+                assert_eq!(value_type, ValueType::Tuple(vec![
+                    ValueType::Float,
+                    ValueType::Float,
+                ]));
             }
             Err(err) => panic!("failed to infer {:?}: {}", code, err),
         }

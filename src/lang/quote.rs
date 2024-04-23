@@ -3,8 +3,14 @@ use super::*;
 pub fn quote(env_len: usize, val: Value) -> Term {
     match val {
         Value::Float(i) => Term::Float(i),
+        Value::Int(i) => Term::Float(i as f32),
         Value::Bool(i) => Term::Bool(i),
         Value::Lib(i) => Term::Lib(i),
+        Value::Extern(_) => panic!("Can't quote extern"),
+        Value::Tuple(xs) => {
+            let xs = xs.into_iter().map(|x| quote(env_len, x)).collect();
+            Term::Tuple(xs)
+        },
         Value::Func(return_type, closure) => {
             let temp_val = closure.apply(Value::Var(env_len as i32));
             Term::Func(return_type, "".into(), quote(env_len + 1, temp_val).into())
@@ -28,7 +34,6 @@ pub fn quote(env_len: usize, val: Value) -> Term {
             let else_ = quote(env_len, *else_);
             Term::Alt(cond.into(), then.into(), else_.into())
         },
-        _ => panic!("Cannot quote extern or unsupported value type"),
     }
 }
 

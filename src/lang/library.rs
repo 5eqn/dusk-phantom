@@ -10,6 +10,11 @@ pub enum Lib {
     Mod,
     Sin,
     Cos,
+    Re,
+    Im,
+    Norm,
+    Angle,
+    Polar,
     Lt,
     Le,
     Gt,
@@ -44,6 +49,11 @@ impl Display for Lib {
             Lib::Mod => write!(f, "mod"),
             Lib::Sin => write!(f, "sin"),
             Lib::Cos => write!(f, "cos"),
+            Lib::Re => write!(f, "re"),
+            Lib::Im => write!(f, "im"),
+            Lib::Norm => write!(f, "norm"),
+            Lib::Angle => write!(f, "angle"),
+            Lib::Polar => write!(f, "polar"),
             Lib::Lt => write!(f, "lt"),
             Lib::Le => write!(f, "le"),
             Lib::Gt => write!(f, "gt"),
@@ -72,6 +82,12 @@ impl Display for Lib {
 
 impl Lib {
     pub fn apply<'a>(&self, arg: Value<'a>) -> Value<'a> {
+        // Refuse to apply lib function to symbol (during partial eval stage)
+        if arg.is_symbol() {
+            return Value::Apply(Value::Lib(self.clone()).into(), vec![arg]);
+        }
+
+        // Otherwise the application is typechecked, thus it should be valid
         match arg {
             Value::Float(f) => {
                 match self {
@@ -104,6 +120,7 @@ impl Lib {
                     Lib::LeI(x) => Value::Bool(*x as f32 <= f),
                     Lib::GtI(x) => Value::Bool(*x as f32 > f),
                     Lib::GeI(x) => Value::Bool(*x as f32 >= f),
+                    _ => panic!("lib function {} does not accept float", self)
                 }
             }
             Value::Int(i) => {
@@ -137,9 +154,32 @@ impl Lib {
                     Lib::LeI(x) => Value::Bool(*x <= i),
                     Lib::GtI(x) => Value::Bool(*x > i),
                     Lib::GeI(x) => Value::Bool(*x >= i),
+                    _ => panic!("lib function {} does not accept int", self)
                 }
             }
-            other => Value::Apply(Value::Lib(self.clone()).into(), vec![other]),
+            Value::Tuple(xs) => {
+                match self {
+                    Lib::Re => Value::Float((&xs[0]).into()),
+                    Lib::Im => Value::Float((&xs[1]).into()),
+                    Lib::Norm => {
+                        let re: f32 = (&xs[0]).into();
+                        let im: f32 = (&xs[1]).into();
+                        Value::Float((re * re + im * im).sqrt())
+                    }
+                    Lib::Angle => {
+                        let re: f32 = (&xs[0]).into();
+                        let im: f32 = (&xs[1]).into();
+                        Value::Float(im.atan2(re))
+                    }
+                    Lib::Polar => {
+                        let norm: f32 = (&xs[0]).into();
+                        let angle: f32 = (&xs[1]).into();
+                        Value::Tuple(vec![Value::Float(norm * angle.cos()), Value::Float(norm * angle.sin())])
+                    }
+                    _ => panic!("lib function {} does not accept tuple", self)
+                }
+            }
+            other => panic!("lib function {} does not accept {}", self, other)
         }
     }
 }
@@ -154,6 +194,8 @@ impl From<Lib> for ValueType {
             Lib::AddI(_) | Lib::SubI(_) | Lib::MulI(_) | Lib::DivI(_) | Lib::ModI(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
             Lib::LtI(_) | Lib::LeI(_) | Lib::GtI(_) | Lib::GeI(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)),
             Lib::Sin | Lib::Cos => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
+            Lib::Re | Lib::Im | Lib::Norm | Lib::Angle => ValueType::Func(Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float])), Box::new(ValueType::Float)),
+            Lib::Polar => ValueType::Func(Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float])), Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float]))),
         }
     }
 }
