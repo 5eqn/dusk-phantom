@@ -91,6 +91,9 @@ Lib: Lib = {
     "norm" => Lib::Norm,
     "angle" => Lib::Angle,
     "polar" => Lib::Polar,
+    "fft" => Lib::Fft,
+    "beat" => Lib::Beat,
+    "sec" => Lib::Sec,
 }
 
 // Value Type

@@ -4,7 +4,7 @@ pub type Env = Vec<Value>;
 
 /// Evaluate a reference to a term
 /// `term` and `env` will only be temporarily mutated
-pub fn eval<'a>(term: &mut Term, env: &mut Env, res: &'a Resource<'a>) -> Value {
+pub fn eval(term: &mut Term, env: &mut Env, res: &Resource) -> Value {
     match term {
         Term::Float(x) => Value::Float(*x),
         Term::Bool(x) => Value::Bool(*x),

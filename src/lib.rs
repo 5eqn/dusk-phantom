@@ -373,6 +373,8 @@ impl Plugin for DuskPhantom {
                 let len = self.local_state.complex_fft_buffer.len();
                 let res = Resource {
                     fft: &self.local_state.complex_fft_buffer,
+                    beat: context.transport().pos_beats().unwrap_or(0.0),
+                    second: context.transport().pos_seconds().unwrap_or(0.0),
                 };
                 let result = code_value.collect(0..len, &res);
 
