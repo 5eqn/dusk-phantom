@@ -9,11 +9,11 @@ pub fn quote(env_len: usize, val: Value) -> Term {
         Value::Tuple(xs) => {
             let xs = xs.into_iter().map(|x| quote(env_len, x)).collect();
             Term::Tuple(xs)
-        },
+        }
         Value::Func(return_type, closure) => {
             let temp_val = closure.papply(Value::Var(env_len as i32));
             Term::Func(return_type, "".into(), quote(env_len + 1, temp_val).into())
-        },
+        }
         Value::Apply(func, args) => {
             let func = quote(env_len, *func);
             let args = args.into_iter().map(|a| quote(env_len, a));
@@ -22,17 +22,17 @@ pub fn quote(env_len: usize, val: Value) -> Term {
                 result = Term::Apply(result.into(), arg.into());
             }
             result
-        },
+        }
         Value::Var(i) => {
             let var_index = env_len - i as usize - 1;
             Term::Var(var_index as i32)
-        },
+        }
         Value::Alt(cond, then, else_) => {
             let cond = quote(env_len, *cond);
             let then = quote(env_len, *then);
             let else_ = quote(env_len, *else_);
             Term::Alt(cond.into(), then.into(), else_.into())
-        },
+        }
     }
 }
 
@@ -64,13 +64,10 @@ pub mod tests_eval {
             ValueType::Float.into(),
             "".into(),
             Term::Apply(
-                Term::Func(
-                    ValueType::Float.into(),
-                    "".into(),
-                    Box::new(Term::Var(0)),
-                ).into(),
+                Term::Func(ValueType::Float.into(), "".into(), Box::new(Term::Var(0))).into(),
                 Box::new(Term::Float(800.0)),
-            ).into(),
+            )
+            .into(),
         ));
         assert_eq!(code, result);
     }
