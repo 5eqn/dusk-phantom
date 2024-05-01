@@ -74,7 +74,7 @@ impl PluginState {
         };
 
         // Store code to cache
-        *code_cache.lock().unwrap() = code_str.clone();
+        code_cache.lock().unwrap().clone_from(&code_str);
 
         // Compile code
         self.compile_code(code_str)
@@ -234,22 +234,134 @@ impl Default for GlobalParams {
 impl Default for ModParams {
     fn default() -> Self {
         ModParams {
-            mod1: FloatParam::new("Mod 1", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod2: FloatParam::new("Mod 2", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod3: FloatParam::new("Mod 3", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod4: FloatParam::new("Mod 4", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod5: FloatParam::new("Mod 5", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod6: FloatParam::new("Mod 6", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod7: FloatParam::new("Mod 7", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod8: FloatParam::new("Mod 8", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod9: FloatParam::new("Mod 9", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod10: FloatParam::new("Mod 10", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod11: FloatParam::new("Mod 11", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod12: FloatParam::new("Mod 12", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod13: FloatParam::new("Mod 13", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod14: FloatParam::new("Mod 14", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod15: FloatParam::new("Mod 15", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),
-            mod16: FloatParam::new("Mod 16", 0.0, FloatRange::Linear { min: -1.0, max: 1.0 }),  
+            mod1: FloatParam::new(
+                "Mod 1",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod2: FloatParam::new(
+                "Mod 2",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod3: FloatParam::new(
+                "Mod 3",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod4: FloatParam::new(
+                "Mod 4",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod5: FloatParam::new(
+                "Mod 5",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod6: FloatParam::new(
+                "Mod 6",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod7: FloatParam::new(
+                "Mod 7",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod8: FloatParam::new(
+                "Mod 8",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod9: FloatParam::new(
+                "Mod 9",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod10: FloatParam::new(
+                "Mod 10",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod11: FloatParam::new(
+                "Mod 11",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod12: FloatParam::new(
+                "Mod 12",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod13: FloatParam::new(
+                "Mod 13",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod14: FloatParam::new(
+                "Mod 14",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod15: FloatParam::new(
+                "Mod 15",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
+            mod16: FloatParam::new(
+                "Mod 16",
+                0.0,
+                FloatRange::Linear {
+                    min: -1.0,
+                    max: 1.0,
+                },
+            ),
         }
     }
 }
@@ -470,7 +582,8 @@ impl Plugin for DuskPhantom {
                 let profile_5 = std::time::Instant::now();
                 for (val, complex) in result
                     .into_iter()
-                    .zip(&mut self.local_state.complex_fft_buffer) {
+                    .zip(&mut self.local_state.complex_fft_buffer)
+                {
                     *complex = val.into();
                 }
 

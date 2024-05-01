@@ -21,12 +21,26 @@ For more info, check `Makefile`.
 
 ## Syntax
 
+The whole term evaluates to a `Float -> (Float, Float)`, representing FFT spectrogram.
+
+Pitcher:
+
+```dp
+(i: Float) => fft(i * 2)
+```
+
+Noise:
+
+```dp
+(i: Float) => (20 / (i + 50), 0)
+```
+
 Low pass:
 
 ```dp
 let lp: Float -> Float -> Float = (l: Float) => (i: Float) => 
   if i < l then 1 else 0 in
-(f: Float -> Float) => (i: Float) => f(i) * lp(10)(i)
+(i: Float) => fft(i) * lp(10)(i)
 ```
 
 Band pass:
@@ -38,29 +52,12 @@ let bp: Float -> Float -> Float -> Float =
   (i: Float) => 
   if i < l then 0 else 
   if i > r then 0 else 1 in
-(f: Float -> Float) => (i: Float) => f(i) * bp(25)(50)(i)
+(i: Float) => fft(i) * bp(25)(50)(i)
 ```
 
-Pitcher:
+## Library Function
 
-```dp
-(f: Float -> Float) => (i: Float) => f(i * 2)
-```
-
-Noise:
-
-```dp
-(f: Float -> Float) => (i: Float) => 20 / (i + 50)
-```
-
-```dp
-// Pitch shift
-(f: Freq -> Comp) => (i: Freq) => f(i * 2)
-
-// LP Filter
-let lp: (i: Freq) -> Float = (i: Freq) => if i < 1600 Hz then 1 else 0
-(f: Freq -> Comp) => (i: Freq) => f(i) * lp(i)
-
-// Spacer
-(f: Freq -> Comp) => (i: Freq) => let c = f(i) in comp(c.r, c.t * 2)
-```
+- `fft(i)`: frequency and phase at band `i`
+- `param(i)`: value of param "Mod i"
+- `beat`: current beat count in float
+- `sec`: current second in float
