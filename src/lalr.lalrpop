@@ -95,6 +95,7 @@ Lib: Lib = {
     "param" => Lib::Param,
     "beat" => Lib::Beat,
     "sec" => Lib::Sec,
+    "tan" => Lib::Tan,
 }
 
 // Value Type
