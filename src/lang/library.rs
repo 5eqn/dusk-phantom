@@ -40,7 +40,8 @@ pub enum Lib {
     LtI(i32),
     LeI(i32),
     GtI(i32),
-    GeI(i32),  
+    GeI(i32),
+    Tan,
 }
 
 impl Display for Lib {
@@ -84,6 +85,7 @@ impl Display for Lib {
             Lib::LeI(x) => write!(f, "le({})", x),
             Lib::GtI(x) => write!(f, "gt({})", x),
             Lib::GeI(x) => write!(f, "ge({})", x),
+            Lib::Tan => write!(f, "tan"),
         }
     }
 }
@@ -162,6 +164,19 @@ impl Lib {
                     _ => panic!("lib function {} does not accept {}", self, arg)
                 }
             }
+            Lib::Tan => {
+                match arg {
+                    Value::Float(f) => {
+                        if (f.abs() - std::f32::consts::FRAC_PI_2).abs() < 0.0001 {
+                            // Handle edge case where tangent is undefined
+                            Value::Float(f32::NAN)
+                        } else {
+                            Value::Float(f.tan())
+                        }
+                    }
+                    _ => panic!("lib function tan does not accept {}", arg)
+                }
+            }
             _ => self.clone().papply(arg)
         }
     }
@@ -206,6 +221,7 @@ impl Lib {
                     Lib::LeI(x) => Value::Bool(x as f32 <= f),
                     Lib::GtI(x) => Value::Bool(x as f32 > f),
                     Lib::GeI(x) => Value::Bool(x as f32 >= f),
+                    Lib::Tan => Value::Float(f.tan()),
                     _ => panic!("lib function {} does not accept float", self)
                 }
             }
@@ -282,7 +298,7 @@ impl From<Lib> for ValueType {
             Lib::Lt1(_) | Lib::Le1(_) | Lib::Gt1(_) | Lib::Ge1(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)),
             Lib::AddI(_) | Lib::SubI(_) | Lib::MulI(_) | Lib::DivI(_) | Lib::ModI(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
             Lib::LtI(_) | Lib::LeI(_) | Lib::GtI(_) | Lib::GeI(_) => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Bool)),
-            Lib::Sin | Lib::Cos => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
+            Lib::Sin | Lib::Cos | Lib::Tan => ValueType::Func(Box::new(ValueType::Float), Box::new(ValueType::Float)),
             Lib::Re | Lib::Im | Lib::Norm | Lib::Angle => ValueType::Func(Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float])), Box::new(ValueType::Float)),
             Lib::Polar => ValueType::Func(Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float])), Box::new(ValueType::Tuple(vec![ValueType::Float, ValueType::Float]))),
         }
